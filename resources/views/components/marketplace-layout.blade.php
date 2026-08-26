@@ -28,6 +28,8 @@
 </head>
 <body>
 
+<x-promo-banner />
+
 <div style="background:var(--bg-elevated);border-bottom:1px solid var(--border);">
     <div class="wrap" style="padding:6px 24px;">
         <a href="{{ route('home') }}" class="mp-back-link"><x-icon name="chevron-left" :size="13" /> Основной магазин AK KAGYZ</a>

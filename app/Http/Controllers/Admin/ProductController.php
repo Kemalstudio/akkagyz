@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Admin;
 use App\Http\Controllers\Controller;
 use App\Models\Category;
 use App\Models\Product;
+use App\Models\ProductAttributeValue;
 use App\Notifications\ProductReviewed;
 use Illuminate\Http\Request;
 use Illuminate\Support\Str;
@@ -30,7 +31,7 @@ class ProductController extends Controller
 
         if ($request->filled('search')) {
             $term = '%'.$request->string('search').'%';
-            $query->where(fn ($q) => $q->where('name', 'like', $term)->orWhere('brand', 'like', $term));
+            $query->where('name', 'like', $term);
         }
 
         $products = $query->latest()->paginate(15)->withQueryString();
@@ -40,7 +41,7 @@ class ProductController extends Controller
 
     public function create()
     {
-        $categories = Category::orderBy('sort_order')->get();
+        $categories = Category::with('attributes')->orderBy('sort_order')->get();
 
         return view('admin.products.form', ['categories' => $categories, 'product' => null]);
     }
@@ -48,6 +49,8 @@ class ProductController extends Controller
     public function store(Request $request)
     {
         $data = $this->validated($request);
+        $attributeValues = $data['attribute_values'] ?? [];
+        unset($data['attribute_values']);
 
         $product = Product::create([
             ...$data,
@@ -56,6 +59,7 @@ class ProductController extends Controller
             'status' => 'active',
         ]);
         $this->storeImages($request, $product);
+        $this->syncAttributeValues($product, $attributeValues);
 
         return redirect()->route('admin.products')->with('status', "Товар «{$product->name}» добавлен и опубликован.");
     }
@@ -63,8 +67,8 @@ class ProductController extends Controller
     public function edit(Product $product)
     {
         abort_unless($product->seller_id === null, 404);
-        $product->load('images');
-        $categories = Category::orderBy('sort_order')->get();
+        $product->load(['images', 'attributeValues']);
+        $categories = Category::with('attributes')->orderBy('sort_order')->get();
 
         return view('admin.products.form', compact('categories', 'product'));
     }
@@ -73,7 +77,11 @@ class ProductController extends Controller
     {
         abort_unless($product->seller_id === null, 404);
 
-        $product->update($this->validated($request));
+        $data = $this->validated($request);
+        $attributeValues = $data['attribute_values'] ?? [];
+        unset($data['attribute_values']);
+
+        $product->update($data);
         if ($request->hasFile('images')) {
             foreach ($product->images as $image) {
                 Storage::disk('public')->delete($image->path);
@@ -81,6 +89,7 @@ class ProductController extends Controller
             }
             $this->storeImages($request, $product);
         }
+        $this->syncAttributeValues($product, $attributeValues);
 
         return redirect()->route('admin.products')->with('status', 'Товар обновлён.');
     }
@@ -115,7 +124,6 @@ class ProductController extends Controller
         return $request->validate([
             'name' => ['required', 'string', 'max:255'],
             'category_id' => ['required', 'exists:categories,id'],
-            'brand' => ['nullable', 'string', 'max:120'],
             'sku' => ['nullable','string','max:120'],
             'barcode' => ['nullable','string','max:120'],
             'price' => ['required', 'integer', 'min:0'],
@@ -125,6 +133,8 @@ class ProductController extends Controller
             'weight'=>['nullable','numeric','min:0'],'length'=>['nullable','numeric','min:0'],'width'=>['nullable','numeric','min:0'],'height'=>['nullable','numeric','min:0'],'low_stock_threshold'=>['nullable','integer','min:0'],'seo_title'=>['nullable','string','max:255'],'seo_description'=>['nullable','string','max:1000'],
             'images' => ['nullable', 'array', 'max:5'],
             'images.*' => ['image', 'max:8192'],
+            'attribute_values' => ['nullable', 'array'],
+            'attribute_values.*' => ['nullable', 'string', 'max:255'],
         ]);
     }
 
@@ -132,6 +142,29 @@ class ProductController extends Controller
     {
         foreach ($request->file('images', []) as $index => $image) {
             $product->images()->create(['path' => $image->store('products', 'public'), 'sort_order' => $index]);
+        }
+    }
+
+    /** @param array<int|string, string|null> $values keyed by product_attribute_id */
+    private function syncAttributeValues(Product $product, array $values): void
+    {
+        $validAttributeIds = $product->category?->attributes()->pluck('id')->all() ?? [];
+
+        foreach ($values as $attributeId => $value) {
+            if (! in_array((int) $attributeId, $validAttributeIds, true)) {
+                continue;
+            }
+
+            $value = trim((string) $value);
+            if ($value === '') {
+                ProductAttributeValue::where('product_id', $product->id)->where('product_attribute_id', $attributeId)->delete();
+                continue;
+            }
+
+            ProductAttributeValue::updateOrCreate(
+                ['product_id' => $product->id, 'product_attribute_id' => $attributeId],
+                ['value' => $value]
+            );
         }
     }
 }

@@ -15,6 +15,7 @@ use App\Notifications\NewOrderForSeller;
 use App\Notifications\OrderPlaced;
 use App\Services\OrderStatusService;
 use App\Services\Payments\PaymentGatewayResolver;
+use App\Services\ProductAttributeFilterService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Hash;
@@ -40,17 +41,18 @@ class MobileController extends Controller
         ]]);
     }
 
-    public function products(Request $request): JsonResponse
+    public function products(Request $request, ProductAttributeFilterService $attributeFilters): JsonResponse
     {
         $query = Product::active()->with(['category', 'images', 'seller']);
-        $query->when($request->filled('q'), fn ($q) => $q->where(fn ($inner) => $inner
-            ->where('name', 'like', '%'.$request->string('q').'%')
-            ->orWhere('brand', 'like', '%'.$request->string('q').'%')));
+        $query->when($request->filled('q'), fn ($q) => $q->where('name', 'like', '%'.$request->string('q').'%'));
         $query->when($request->filled('category_id'), fn ($q) => $q->where('category_id', $request->integer('category_id')));
-        $query->when($request->filled('brand'), fn ($q) => $q->where('brand', $request->string('brand')));
         $query->when($request->filled('min_price'), fn ($q) => $q->where('price', '>=', $request->integer('min_price')));
         $query->when($request->filled('max_price'), fn ($q) => $q->where('price', '<=', $request->integer('max_price')));
         $query->when($request->boolean('in_stock'), fn ($q) => $q->where('stock', '>', 0));
+        if ($request->filled('category_id')) {
+            $category = Category::find($request->integer('category_id'));
+            $attributeFilters->applySelected($query, $request, $attributeFilters->attributesFor($category));
+        }
         match ($request->string('sort')->toString()) {
             'price_asc' => $query->orderBy('price'),
             'price_desc' => $query->orderByDesc('price'),
@@ -82,22 +84,30 @@ class MobileController extends Controller
         ])]);
     }
 
-    public function filters(Request $request): JsonResponse
+    public function filters(Request $request, ProductAttributeFilterService $attributeFilters): JsonResponse
     {
         $query = Product::active();
         $query->when($request->filled('category_id'), fn ($q) => $q->where('category_id', $request->integer('category_id')));
 
+        $category = $request->filled('category_id') ? Category::find($request->integer('category_id')) : null;
+        $attributes = $attributeFilters->attributesFor($category);
+        $facets = $attributeFilters->facets($query, $attributes);
+
         return response()->json(['data' => [
-            'brands' => (clone $query)->whereNotNull('brand')->where('brand', '!=', '')->distinct()->orderBy('brand')->pluck('brand'),
             'min_price' => (int) ((clone $query)->min('price') ?? 0),
             'max_price' => (int) ((clone $query)->max('price') ?? 0),
+            'attributes' => $facets->map(fn (array $facet) => [
+                'id' => $facet['attribute']->id,
+                'name' => $facet['attribute']->name,
+                'values' => $facet['values']->map(fn ($item) => ['value' => $item->value, 'count' => $item->aggregate]),
+            ]),
         ]]);
     }
 
     public function product(Product $product): JsonResponse
     {
         abort_unless($product->status === 'active', 404);
-        $product->load(['category', 'images', 'seller', 'reviews'=>fn($q)=>$q->published()->with(['user','replies.user'])]);
+        $product->load(['category', 'images', 'seller', 'attributeValues.attribute', 'reviews'=>fn($q)=>$q->published()->with(['user','replies.user'])]);
 
         return response()->json(['data' => $this->productData($product) + ['reviews' => $product->reviews->map(fn ($review) => [
             'id' => $review->id, 'rating' => $review->rating, 'comment' => $review->comment,
@@ -477,6 +487,6 @@ class MobileController extends Controller
 
     private function productData(Product $product): array
     {
-        return ['id' => $product->id, 'name' => $product->name, 'slug' => $product->slug, 'category_id' => $product->category_id, 'category' => $product->category?->name, 'brand' => $product->brand, 'description' => $product->description, 'price' => $product->price, 'compare_price' => $product->compare_price, 'stock' => $product->stock, 'rating' => (float) $product->rating_avg, 'rating_count' => $product->rating_count, 'image_url' => $product->images->first()?->url, 'images' => $product->images->pluck('url')->filter()->values(), 'seller' => $product->seller?->store_name];
+        return ['id' => $product->id, 'name' => $product->name, 'slug' => $product->slug, 'category_id' => $product->category_id, 'category' => $product->category?->name, 'description' => $product->description, 'price' => $product->price, 'compare_price' => $product->compare_price, 'stock' => $product->stock, 'rating' => (float) $product->rating_avg, 'rating_count' => $product->rating_count, 'image_url' => $product->images->first()?->url, 'images' => $product->images->pluck('url')->filter()->values(), 'seller' => $product->seller?->store_name, 'specs' => $product->relationLoaded('attributeValues') ? $product->attributeValues->map(fn ($value) => ['name' => $value->attribute->name, 'value' => $value->value]) : []];
     }
 }

@@ -9,6 +9,9 @@
   <div class="field"><label>Instagram</label><input class="input" type="url" name="instagram_url" value="{{ old('instagram_url',$settings->instagram_url) }}" placeholder="https://instagram.com/..."></div>
   <div class="field"><label>Telegram</label><input class="input" type="url" name="telegram_url" value="{{ old('telegram_url',$settings->telegram_url) }}" placeholder="https://t.me/..."></div>
   <div class="field"><label>WhatsApp</label><input class="input" type="url" name="whatsapp_url" value="{{ old('whatsapp_url',$settings->whatsapp_url) }}" placeholder="https://wa.me/..."></div>
+  <div class="field"><label>Ссылка на Google Play</label><input class="input" type="url" name="google_play_url" value="{{ old('google_play_url',$settings->google_play_url) }}" placeholder="https://play.google.com/store/apps/details?id=..."></div>
+  <div class="field"><label>Ссылка на App Store</label><input class="input" type="url" name="app_store_url" value="{{ old('app_store_url',$settings->app_store_url) }}" placeholder="https://apps.apple.com/app/..."></div>
  </div>
+ <div style="margin-top:14px;padding:14px;border-radius:12px;background:var(--surface-hover);color:var(--text-faint);font-size:12px">Баннер «Скачайте приложение» на главной странице появится автоматически, как только будет заполнена хотя бы одна из ссылок на сторы.</div>
  <div style="margin-top:18px;padding:14px;border-radius:12px;background:var(--accent-soft);color:var(--text-muted);font-size:12px">После сохранения сайт увидит изменения сразу, а приложение загрузит их при запуске.</div>
 </section>

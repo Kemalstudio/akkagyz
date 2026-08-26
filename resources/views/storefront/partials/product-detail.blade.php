@@ -42,7 +42,6 @@
     </div>
 
     <div style="display:flex;flex-direction:column;">
-        <div style="font-size:12px;color:var(--text-faint);font-weight:700;text-transform:uppercase;letter-spacing:.04em;">{{ $product->brand }}</div>
         <h1 style="font-size:30px;font-weight:700;letter-spacing:-.02em;line-height:1.25;margin:6px 0 0;">{{ $product->name }}</h1>
         <div style="display:flex;align-items:center;gap:12px;margin-top:12px;">
             @if($product->rating_count > 0)
@@ -68,7 +67,22 @@
             <p style="font-size:14px;color:var(--text-muted);line-height:1.7;margin-top:20px;">{{ $product->description }}</p>
         @endif
 
-        <div class="product-facts"><div><span>Артикул</span><strong>AK-{{ str_pad($product->id,6,'0',STR_PAD_LEFT) }}</strong></div><div><span>Категория</span><strong>{{ $product->category?->name ?: '—' }}</strong></div><div><span>Бренд</span><strong>{{ $product->brand ?: 'Без бренда' }}</strong></div><div><span>Продано</span><strong>{{ $product->sales_count }} шт.</strong></div><div><span>На складе</span><strong>{{ $product->stock }} шт.</strong></div></div>
+        <div class="product-facts"><div><span>Артикул</span><strong>AK-{{ str_pad($product->id,6,'0',STR_PAD_LEFT) }}</strong></div><div><span>Категория</span><strong>{{ $product->category?->name ?: '—' }}</strong></div><div><span>Продано</span><strong>{{ $product->sales_count }} шт.</strong></div><div><span>На складе</span><strong>{{ $product->stock }} шт.</strong></div></div>
+
+        @if($product->attributeValues->isNotEmpty())
+            @php($specs = $product->attributeValues->sortBy(fn($item) => $item->attribute->sort_order))
+            <div style="margin-top:24px;">
+                <div style="font-size:15px;font-weight:800;margin-bottom:12px;">Характеристики</div>
+                <div style="border:1px solid var(--border);border-radius:13px;overflow:hidden;">
+                    @foreach($specs as $item)
+                        <div style="display:flex;justify-content:space-between;gap:14px;padding:11px 15px;font-size:13px;{{ !$loop->last ? 'border-bottom:1px solid var(--border);' : '' }}">
+                            <span style="color:var(--text-faint);">{{ $item->attribute->name }}</span>
+                            <span style="font-weight:700;text-align:right;">{{ $item->value }}</span>
+                        </div>
+                    @endforeach
+                </div>
+            </div>
+        @endif
 
         <div style="display:flex;align-items:center;gap:14px;margin-top:20px;">
             @auth

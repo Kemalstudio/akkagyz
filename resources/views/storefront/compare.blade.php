@@ -5,7 +5,6 @@ $rows=[
  ['Скидка',fn($p)=>$p->discount_percent?'-'.$p->discount_percent.'%':'—','discount'],
  ['Рейтинг',fn($p)=>$p->rating_count?number_format($p->rating_avg,1).' / 5':'Нет оценок','rating'],
  ['Количество отзывов',fn($p)=>(string)$p->rating_count,'reviews'],
- ['Бренд',fn($p)=>$p->brand?:'Без бренда','brand'],
  ['Категория',fn($p)=>$p->category?->name?:'—','category'],
  ['Наличие',fn($p)=>$p->in_stock?'В наличии':'Нет в наличии','available'],
  ['Остаток',fn($p)=>$p->stock.' шт.','stock'],

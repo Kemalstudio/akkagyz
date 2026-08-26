@@ -12,7 +12,7 @@ class Product extends Model
     use HasFactory;
 
     protected $fillable = [
-        'seller_id', 'category_id', 'name', 'slug', 'sku', 'barcode', 'brand', 'description', 'attributes', 'weight', 'length', 'width', 'height', 'low_stock_threshold', 'seo_title', 'seo_description', 'rejection_reason', 'archived_at',
+        'seller_id', 'category_id', 'name', 'slug', 'sku', 'barcode', 'description', 'attributes', 'weight', 'length', 'width', 'height', 'low_stock_threshold', 'seo_title', 'seo_description', 'rejection_reason', 'archived_at',
         'price', 'compare_price', 'stock', 'status', 'is_vip',
         'rating_avg', 'rating_count', 'sales_count',
     ];
@@ -50,6 +50,12 @@ class Product extends Model
     }
     public function variants(): HasMany { return $this->hasMany(ProductVariant::class); }
     public function stockMovements(): HasMany { return $this->hasMany(StockMovement::class); }
+
+    /** @return HasMany<ProductAttributeValue, $this> */
+    public function attributeValues(): HasMany
+    {
+        return $this->hasMany(ProductAttributeValue::class);
+    }
 
     public function scopeActive($query)
     {

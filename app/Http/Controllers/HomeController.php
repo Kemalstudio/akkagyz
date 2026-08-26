@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use App\Models\Banner;
 use App\Models\Category;
 use App\Models\Product;
+use App\Models\Review;
 
 class HomeController extends Controller
 {
@@ -31,6 +32,15 @@ class HomeController extends Controller
             'categorySections' => $categorySections,
             'popular' => Product::active()->own()->with('images')->orderByDesc('sales_count')->limit(4)->get(),
             'newest' => Product::active()->own()->with('images')->orderByDesc('created_at')->limit(4)->get(),
+            'testimonials' => Review::published()
+                ->where('rating', '>=', 4)
+                ->whereNotNull('comment')
+                ->where('comment', '!=', '')
+                ->whereHas('product')
+                ->with(['user:id,name,avatar_path', 'product:id,name,slug,seller_id'])
+                ->latest()
+                ->limit(9)
+                ->get(),
         ]);
     }
 }

@@ -31,7 +31,7 @@
                 <tr>
                     <td><div class="entity-cell">
                         <div style="width:42px;height:42px;border-radius:10px;background:var(--surface-hover);overflow:hidden;display:grid;place-items:center;color:var(--text-faint);flex-shrink:0">@if($product->images->first())<img src="{{ $product->images->first()->url }}" alt="{{ $product->name }}" loading="lazy" style="width:100%;height:100%;object-fit:cover">@else<x-icon name="image" :size="17"/>@endif</div>
-                        <div><div class="entity-name">{{ $product->name }}</div><div class="entity-meta">{{ $product->brand ?: $product->category?->name }}</div></div>
+                        <div><div class="entity-name">{{ $product->name }}</div><div class="entity-meta">{{ $product->category?->name }}</div></div>
                         @if($product->is_vip)
                             <span class="badge" style="background:var(--warning-soft);color:var(--warning);"><x-icon name="star" :size="10" />VIP</span>
                         @endif

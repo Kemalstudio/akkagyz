@@ -24,11 +24,12 @@
                         @endforeach
                     </select>
                 </div>
-                <div><label class="label">Бренд</label><input class="input" name="brand" value="{{ old('brand', $product->brand ?? '') }}" placeholder="Название бренда"></div>
                 <div><label class="label">Цена, TMT</label><input required type="number" min="0" class="input" name="price" value="{{ old('price', $product->price ?? '') }}" placeholder="0"></div>
                 <div><label class="label">Старая цена (для скидки), TMT</label><input type="number" min="0" class="input" name="compare_price" value="{{ old('compare_price', $product->compare_price ?? '') }}" placeholder="Необязательно"></div>
                 <div><label class="label">Количество на складе</label><input required type="number" min="0" class="input" name="stock" value="{{ old('stock', $product->stock ?? '') }}" placeholder="0"></div>
                 <div style="grid-column:1/-1;"><label class="label">Описание</label><textarea name="description" class="input" style="height:90px;padding:12px 14px;resize:none;" placeholder="Расскажите о товаре подробнее">{{ old('description', $product->description ?? '') }}</textarea></div>
+
+                <div style="grid-column:1/-1;"><x-attribute-fields :categories="$categories" :product="$product" /></div>
 
                 <div style="grid-column:1/-1;">
                     @if(auth()->user()->is_vip)

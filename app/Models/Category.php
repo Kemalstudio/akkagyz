@@ -30,6 +30,12 @@ class Category extends Model
         return $this->hasMany(Category::class, 'parent_id')->orderBy('sort_order');
     }
 
+    /** @return HasMany<ProductAttribute, $this> */
+    public function attributes(): HasMany
+    {
+        return $this->hasMany(ProductAttribute::class)->orderBy('sort_order');
+    }
+
     public function scopeTopLevel($query)
     {
         return $query->whereNull('parent_id');

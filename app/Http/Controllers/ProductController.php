@@ -5,11 +5,12 @@ namespace App\Http\Controllers;
 use App\Models\Category;
 use App\Models\Product;
 use App\Models\Review;
+use App\Services\ProductAttributeFilterService;
 use Illuminate\Http\Request;
 
 class ProductController extends Controller
 {
-    public function index(Request $request)
+    public function index(Request $request, ProductAttributeFilterService $attributeFilters)
     {
         $query = Product::query()->active()->own()->with(['category', 'seller', 'images']);
 
@@ -38,14 +39,11 @@ class ProductController extends Controller
             $query->where('stock', '>', 0);
         }
         if ($request->boolean('on_sale')) $query->whereNotNull('compare_price')->whereColumn('compare_price', '>', 'price');
-        if ($request->filled('rating_min')) $query->where('rating_avg', '>=', (float) $request->input('rating_min'));
         if ($request->boolean('vip')) $query->where('is_vip', true);
 
-        $availableBrands = (clone $query)->whereNotNull('brand')->distinct()->orderBy('brand')->pluck('brand');
-
-        if ($request->filled('brands')) {
-            $query->whereIn('brand', $request->input('brands'));
-        }
+        $categoryAttributes = $attributeFilters->attributesFor($category);
+        $attributeFacets = $attributeFilters->facets($query, $categoryAttributes);
+        $attributeFilters->applySelected($query, $request, $categoryAttributes);
 
         match ($request->string('sort')->value()) {
             'price_asc' => $query->orderBy('price'),
@@ -57,16 +55,20 @@ class ProductController extends Controller
             default => $query->orderByDesc('sales_count'),
         };
 
-        $products = $query->paginate(12)->withQueryString();
+        $perPage = in_array((int) $request->input('per_page'), [30, 50, 100, 200, 300], true)
+            ? (int) $request->input('per_page')
+            : 30;
+
+        $products = $query->paginate($perPage)->withQueryString();
 
         return view('storefront.catalog', [
             'products' => $products,
             'categories' => Category::orderBy('sort_order')->get(),
             'activeCategory' => $category,
-            'availableBrands' => $availableBrands,
             'categoryRoot' => $categoryRoot,
             'priceCeiling' => $priceCeiling,
             'filterContext' => $this->filterContext($categoryRoot?->slug),
+            'attributeFacets' => $attributeFacets,
         ]);
     }
 
@@ -92,7 +94,7 @@ class ProductController extends Controller
 
     public function show(string $slug)
     {
-        $product = Product::where('slug', $slug)->own()->with(['category', 'seller', 'images'])
+        $product = Product::where('slug', $slug)->own()->with(['category', 'seller', 'images', 'attributeValues.attribute'])
             ->withCount('reviews')
             ->firstOrFail();
 
@@ -133,11 +135,11 @@ class ProductController extends Controller
     private function filterContext(?string $slug): array
     {
         return match($slug) {
-            'elektronika' => ['title'=>'Параметры электроники','hint'=>'Бренд, цена, рейтинг и наличие','quick'=>[['До 5 000',0,5000],['5 000–15 000',5000,15000],['От 15 000',15000,null]]],
-            'ofis-i-biznes' => ['title'=>'Для офиса и бизнеса','hint'=>'Подберите оснащение по бюджету и бренду','quick'=>[['До 2 500',0,2500],['2 500–7 500',2500,7500],['Премиум',7500,null]]],
-            'kancelyariya' => ['title'=>'Канцелярские товары','hint'=>'Фильтры по брендам, стоимости и наличию','quick'=>[['До 2 000',0,2000],['2 000–5 000',2000,5000],['От 5 000',5000,null]]],
+            'elektronika' => ['title'=>'Параметры электроники','hint'=>'Цена, рейтинг и наличие','quick'=>[['До 5 000',0,5000],['5 000–15 000',5000,15000],['От 15 000',15000,null]]],
+            'ofis-i-biznes' => ['title'=>'Для офиса и бизнеса','hint'=>'Подберите оснащение по бюджету','quick'=>[['До 2 500',0,2500],['2 500–7 500',2500,7500],['Премиум',7500,null]]],
+            'kancelyariya' => ['title'=>'Канцелярские товары','hint'=>'Фильтры по стоимости и наличию','quick'=>[['До 2 000',0,2000],['2 000–5 000',2000,5000],['От 5 000',5000,null]]],
             'tvorchestvo' => ['title'=>'Товары для творчества','hint'=>'Найдите материалы под свой проект','quick'=>[['До 3 000',0,3000],['3 000–7 000',3000,7000],['Профессиональные',7000,null]]],
-            default => ['title'=>'Умные фильтры','hint'=>'Цена, бренд, рейтинг и наличие','quick'=>[['До 3 000',0,3000],['3 000–10 000',3000,10000],['От 10 000',10000,null]]],
+            default => ['title'=>'Умные фильтры','hint'=>'Цена, рейтинг и наличие','quick'=>[['До 3 000',0,3000],['3 000–10 000',3000,10000],['От 10 000',10000,null]]],
         };
     }
 }

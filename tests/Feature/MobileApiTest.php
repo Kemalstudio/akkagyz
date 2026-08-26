@@ -16,14 +16,14 @@ it('serves the mobile product catalog', function () {
 
 it('provides categories filters and product details for mobile catalog', function () {
     $category = Category::create(['name' => 'Office', 'slug' => 'office-mobile', 'sort_order' => 1]);
-    $product = Product::create(['category_id' => $category->id, 'name' => 'Filter Paper', 'slug' => 'filter-paper', 'brand' => 'AK', 'description' => 'Premium paper', 'price' => 75, 'stock' => 10, 'status' => 'active']);
+    $product = Product::create(['category_id' => $category->id, 'name' => 'Filter Paper', 'slug' => 'filter-paper', 'description' => 'Premium paper', 'price' => 75, 'stock' => 10, 'status' => 'active']);
 
     $this->getJson('/api/v1/categories')->assertOk()->assertJsonPath('data.0.name', 'Office');
     $this->getJson('/api/v1/filters?category_id='.$category->id)->assertOk()
-        ->assertJsonPath('data.brands.0', 'AK')->assertJsonPath('data.min_price', 75);
+        ->assertJsonPath('data.min_price', 75);
     $this->getJson('/api/v1/products/'.$product->id)->assertOk()
         ->assertJsonPath('data.description', 'Premium paper')->assertJsonStructure(['data' => ['images', 'reviews']]);
-    $this->getJson('/api/v1/products?brand=AK&min_price=70&max_price=80')->assertOk()->assertJsonCount(1, 'data');
+    $this->getJson('/api/v1/products?min_price=70&max_price=80')->assertOk()->assertJsonCount(1, 'data');
 });
 
 it('authenticates a mobile user and protects private resources', function () {

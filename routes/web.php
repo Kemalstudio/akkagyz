@@ -2,6 +2,7 @@
 
 use App\Http\Controllers\Admin\BannerController as AdminBannerController;
 use App\Http\Controllers\Admin\CategoryController as AdminCategoryController;
+use App\Http\Controllers\Admin\CategoryAttributeController as AdminCategoryAttributeController;
 use App\Http\Controllers\Admin\BusinessSettingController as AdminBusinessSettingController;
 use App\Http\Controllers\Admin\DashboardController as AdminDashboardController;
 use App\Http\Controllers\Admin\PromoPopupController as AdminPromoPopupController;
@@ -178,6 +179,10 @@ Route::middleware(['auth', 'role:admin', 'admin.permission', 'admin.audit'])->pr
 
     Route::get('/products', [AdminProductController::class, 'index'])->name('products');
     Route::resource('categories', AdminCategoryController::class)->except('show');
+    Route::get('/categories/{category}/attributes', [AdminCategoryAttributeController::class, 'index'])->name('categories.attributes.index');
+    Route::post('/categories/{category}/attributes', [AdminCategoryAttributeController::class, 'store'])->name('categories.attributes.store');
+    Route::put('/categories/{category}/attributes/{attribute}', [AdminCategoryAttributeController::class, 'update'])->name('categories.attributes.update');
+    Route::delete('/categories/{category}/attributes/{attribute}', [AdminCategoryAttributeController::class, 'destroy'])->name('categories.attributes.destroy');
     Route::get('/products/create', [AdminProductController::class, 'create'])->name('products.create');
     Route::post('/products', [AdminProductController::class, 'store'])->name('products.store');
     Route::get('/products/{product}/edit', [AdminProductController::class, 'edit'])->name('products.edit');

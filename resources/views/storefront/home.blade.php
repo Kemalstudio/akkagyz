@@ -175,6 +175,60 @@
     </div>
     @endif
 
+    @if($testimonials->isNotEmpty())
+    <div class="wrap" style="padding:44px 24px 8px;">
+        <div style="display:flex;align-items:baseline;justify-content:space-between;margin-bottom:20px;">
+            <div style="display:flex;align-items:baseline;gap:12px;">
+                <span style="font-size:24px;font-weight:900;">Отзывы покупателей</span>
+                <span style="font-size:13px;color:var(--text-faint);font-weight:600;">реальные оценки товаров</span>
+            </div>
+        </div>
+        <div class="testi-viewport">
+            <button type="button" class="cat-tiles-nav cat-tiles-nav-left" aria-label="Прокрутить влево" onclick="document.getElementById('testi-scroll').scrollBy({left:-360,behavior:'smooth'})">
+                <x-icon name="chevron-left" :size="18" />
+            </button>
+            <div class="testi-scroll" id="testi-scroll">
+                @foreach($testimonials as $review)
+                    <div class="testi-card">
+                        <div style="display:flex;align-items:center;gap:10px;">
+                            <div style="width:38px;height:38px;border-radius:50%;background:linear-gradient(135deg,var(--accent),#7c6cf2);color:#fff;display:flex;align-items:center;justify-content:center;font-weight:800;font-size:13px;flex-shrink:0;overflow:hidden;">
+                                @if($review->user->avatar_url)
+                                    <img src="{{ $review->user->avatar_url }}" alt="" style="width:100%;height:100%;object-fit:cover;">
+                                @else
+                                    {{ \Illuminate\Support\Str::of($review->user->name)->substr(0, 2)->upper() }}
+                                @endif
+                            </div>
+                            <div style="flex:1;min-width:0;">
+                                <div style="font-size:13.5px;font-weight:800;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">{{ $review->user->name }}</div>
+                                <x-star-rating :rating="$review->rating" :size="12" :gap="1" />
+                            </div>
+                            @if($review->is_verified_purchase)
+                                <span class="badge" style="background:var(--success-soft);color:var(--success);font-size:9.5px;flex-shrink:0;white-space:nowrap;">Покупка подтверждена</span>
+                            @endif
+                        </div>
+                        <p style="font-size:13.5px;color:var(--text-muted);line-height:1.55;margin:14px 0 0;display:-webkit-box;-webkit-line-clamp:4;-webkit-box-orient:vertical;overflow:hidden;">{{ $review->comment }}</p>
+                        @if($review->product)
+                            <a href="{{ route($review->product->seller_id ? 'marketplace.products.show' : 'products.show', $review->product->slug) }}" style="display:block;margin-top:14px;padding-top:12px;border-top:1px solid var(--border);font-size:12px;font-weight:700;color:var(--accent);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">
+                                Отзыв о товаре «{{ $review->product->name }}»
+                            </a>
+                        @endif
+                    </div>
+                @endforeach
+            </div>
+            <button type="button" class="cat-tiles-nav cat-tiles-nav-right" aria-label="Прокрутить вправо" onclick="document.getElementById('testi-scroll').scrollBy({left:360,behavior:'smooth'})">
+                <x-icon name="chevron-right" :size="18" />
+            </button>
+            <div class="cat-tiles-fade"></div>
+        </div>
+    </div>
+    <style>
+        .testi-viewport{position:relative;}
+        .testi-scroll{display:flex;gap:16px;overflow-x:auto;scroll-behavior:smooth;scrollbar-width:none;padding-bottom:2px;}
+        .testi-scroll::-webkit-scrollbar{display:none;}
+        .testi-card{flex:0 0 300px;border-radius:16px;padding:20px;background:var(--surface);border:1px solid var(--border);display:flex;flex-direction:column;}
+    </style>
+    @endif
+
     <div class="wrap" style="padding:44px 24px 8px;">
         <div style="border-radius:20px;background:linear-gradient(100deg, oklch(0.28 0.055 264) 0%, oklch(0.24 0.045 264) 55%);border:1px solid var(--border);display:flex;align-items:stretch;justify-content:space-between;overflow:hidden;">
             <div style="padding:40px 44px;flex:1;">
@@ -192,7 +246,7 @@
     </div>
 
     @if($newest->isNotEmpty())
-    <div class="wrap" style="padding:44px 24px 56px;">
+    <div class="wrap" style="padding:44px 24px 8px;">
         <div style="font-size:24px;font-weight:900;margin-bottom:20px;">Новинки</div>
         <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:20px;">
             @foreach($newest as $product)
@@ -200,5 +254,38 @@
             @endforeach
         </div>
     </div>
+    @endif
+
+    @php($business = \App\Models\BusinessSetting::current())
+    @if($business->google_play_url || $business->app_store_url)
+    <div class="wrap" style="padding:44px 24px 56px;">
+        <div style="border-radius:20px;background:linear-gradient(100deg, oklch(0.24 0.05 264) 0%, oklch(0.16 0.025 264) 70%);border:1px solid var(--border);padding:44px;display:flex;align-items:center;justify-content:space-between;gap:32px;flex-wrap:wrap;">
+            <div style="flex:1;min-width:260px;">
+                <div class="badge" style="background:oklch(1 0 0 / .14);color:#fff;width:fit-content;margin-bottom:14px;">Мобильное приложение</div>
+                <div style="font-size:26px;font-weight:900;color:#fff;max-width:420px;line-height:1.25;">Покупайте с телефона — приложение AK KAGYZ уже доступно</div>
+                <div style="font-size:14px;color:oklch(1 0 0 / .7);margin-top:10px;max-width:420px;">Весь каталог, отслеживание заказов и уведомления о статусе — в одном приложении.</div>
+                <div style="display:flex;flex-wrap:wrap;gap:12px;margin-top:24px;">
+                    @if($business->google_play_url)
+                        <a href="{{ $business->google_play_url }}" target="_blank" rel="noopener" class="app-store-badge">
+                            <svg width="22" height="22" viewBox="0 0 24 24" fill="currentColor"><path d="M3.6 2.3c-.4.2-.6.6-.6 1.1v17.2c0 .5.2.9.6 1.1l9.8-9.7L3.6 2.3Z"/><path d="m14.4 12 3-3 3.9 2.2c.7.4.7 1.4 0 1.8L17.4 15l-3-3Z" opacity=".65"/><path d="m4.3 21.6 9-9 3.1 3.1-10.6 6.2c-.5.3-1.1.1-1.5-.3Z" opacity=".85"/><path d="m4.3 2.4 9 9-9 9c-.4-.2-.7-.6-.7-1.1V3.5c0-.5.3-.9.7-1.1Z" opacity=".85"/></svg>
+                            <div><small>Доступно в</small><span>Google Play</span></div>
+                        </a>
+                    @endif
+                    @if($business->app_store_url)
+                        <a href="{{ $business->app_store_url }}" target="_blank" rel="noopener" class="app-store-badge">
+                            <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor"><path d="M17.5 12.7c0-2.5 2-3.7 2.1-3.8-1.1-1.7-2.9-1.9-3.5-1.9-1.5-.2-2.9.9-3.6.9-.8 0-1.9-.9-3.2-.8-1.6 0-3.1.9-3.9 2.4-1.7 2.9-.4 7.3 1.2 9.6.8 1.2 1.7 2.5 3 2.4 1.2 0 1.6-.8 3.1-.8s1.9.8 3.2.7c1.3 0 2.1-1.2 2.9-2.4.6-.9 1.1-1.9 1.4-3-1.8-.7-2.7-2.4-2.7-3.3Z"/><path d="M14.9 5.2c.6-.8 1.1-1.9 1-3-.9.1-2 .6-2.7 1.4-.6.7-1.1 1.8-1 2.9 1 .1 2.1-.5 2.7-1.3Z"/></svg>
+                            <div><small>Загрузите в</small><span>App Store</span></div>
+                        </a>
+                    @endif
+                </div>
+            </div>
+        </div>
+    </div>
+    <style>
+        .app-store-badge{display:flex;align-items:center;gap:10px;padding:10px 18px;border-radius:12px;background:oklch(1 0 0 / .1);border:1px solid oklch(1 0 0 / .18);color:#fff;transition:background .15s,transform .15s;}
+        .app-store-badge:hover{background:oklch(1 0 0 / .18);transform:translateY(-2px);}
+        .app-store-badge small{display:block;font-size:9.5px;color:oklch(1 0 0 / .65);line-height:1.2;}
+        .app-store-badge span{display:block;font-size:14px;font-weight:800;line-height:1.25;}
+    </style>
     @endif
 </x-layout>

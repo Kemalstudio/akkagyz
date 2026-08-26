@@ -13,6 +13,7 @@ class CategorySeeder extends Seeder
             ['name' => 'Канцелярия', 'slug' => 'kancelyariya', 'icon' => 'pen', 'children' => [
                 ['Ручки и карандаши', 'pencil'], ['Тетради и блокноты', 'notebook'], ['Маркеры и фломастеры', 'marker'],
                 ['Ластики и точилки', 'eraser'], ['Клей и скотч', 'glue'], ['Линейки и чертёжные принадлежности', 'ruler'],
+                ['Бумага для печати', 'printer'],
             ]],
             ['name' => 'Офис и бизнес', 'slug' => 'ofis-i-biznes', 'icon' => 'briefcase', 'children' => [
                 ['Папки и архивация', 'folder'], ['Органайзеры для стола', 'tray'], ['Степлеры и дыроколы', 'stapler'],

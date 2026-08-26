@@ -30,6 +30,7 @@
 </head>
 <body>
 
+<x-promo-banner />
 <x-promo-popup />
 <x-auth-gate />
 
