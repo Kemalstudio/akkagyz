@@ -19,7 +19,7 @@
 </div>
 
 <div class="wrap product-detail-grid" style="padding:12px 24px 8px;display:grid;grid-template-columns:1fr 1fr;gap:48px;">
-    <div style="display:flex;flex-direction:column;gap:12px;">
+    <div style="display:flex;flex-direction:column;gap:12px;position:relative;">
         <div id="product-main-image" class="product-gallery-main">
             @if($mainImage)<img id="gallery-main-img" src="{{ $mainImage->url }}" alt="{{ $product->name }}">@else<x-icon name="image" :size="90" />@endif
             <div style="position:absolute;top:16px;left:16px;display:flex;flex-direction:column;gap:6px;">
@@ -31,7 +31,9 @@
                 @endif
             </div>
             @if($product->images->count()>1)<button type="button" class="gallery-nav gallery-prev" onclick="akGalleryMove(-1)"><x-icon name="chevron-left" :size="20"/></button><button type="button" class="gallery-nav gallery-next" onclick="akGalleryMove(1)"><x-icon name="chevron-right" :size="20"/></button><span class="gallery-count"><span id="gallery-index">1</span> / {{ $product->images->count() }}</span>@endif
+            @if($mainImage)<div class="gallery-zoom-lens" id="gallery-zoom-lens"></div>@endif
         </div>
+        @if($mainImage)<div class="gallery-zoom-pane" id="gallery-zoom-pane"></div>@endif
         @if($product->images->count() > 1)
             <div style="display:flex;gap:10px;flex-wrap:wrap;">
                 @foreach($product->images as $img)
@@ -182,5 +184,72 @@
     </div>
 </div>
 @endif
-<style>.product-gallery-main{position:relative;aspect-ratio:1;background:var(--surface);border:1px solid var(--border);border-radius:22px;display:flex;align-items:center;justify-content:center;color:var(--text-faint);overflow:hidden;cursor:zoom-in}.product-gallery-main>img{width:100%;height:100%;object-fit:contain;transition:transform .22s ease;will-change:transform}.product-gallery-main:hover>img{transform:scale(1.65)}.gallery-nav{position:absolute;top:50%;transform:translateY(-50%);width:40px;height:40px;border-radius:12px;border:1px solid var(--border);background:color-mix(in oklch,var(--surface) 84%,transparent);backdrop-filter:blur(10px);color:var(--text);display:grid;place-items:center;z-index:3}.gallery-prev{left:14px}.gallery-next{right:14px}.gallery-count{position:absolute;right:14px;bottom:14px;padding:5px 9px;border-radius:8px;background:rgba(10,12,18,.65);color:white;font-size:10px;backdrop-filter:blur(7px)}.gallery-thumb{width:68px;height:68px;border-radius:11px;border:1px solid var(--border);background:var(--surface);padding:3px;overflow:hidden;transition:.18s}.gallery-thumb img{width:100%;height:100%;object-fit:contain}.gallery-thumb.active{border-color:var(--accent);box-shadow:0 0 0 2px var(--accent-soft)}.product-facts{display:grid;grid-template-columns:repeat(3,1fr);gap:1px;margin-top:20px;border:1px solid var(--border);border-radius:13px;overflow:hidden;background:var(--border)}.product-facts div{background:var(--surface);padding:11px 13px}.product-facts span{display:block;font-size:9px;color:var(--text-faint);text-transform:uppercase;letter-spacing:.06em}.product-facts strong{display:block;font-size:12px;font-weight:600;margin-top:3px}.review-replies{margin-top:14px;padding-left:15px;border-left:2px solid var(--accent-soft);display:grid;gap:10px}.review-reply{display:flex;gap:9px;padding:10px 12px;background:var(--bg-elevated);border-radius:10px}.reply-avatar{width:28px;height:28px;border-radius:8px;background:var(--accent-soft);color:var(--accent);display:grid;place-items:center;font-size:9px;font-weight:700;overflow:hidden;flex-shrink:0}.reply-avatar img{width:100%;height:100%;object-fit:cover}.review-reply strong{font-size:11px;font-weight:700}.admin-reply-badge{font-size:8px;padding:2px 5px;border-radius:5px;background:var(--accent);color:white;font-weight:700}.reply-delete{border:0;background:none;color:var(--text-faint);font-size:17px;padding:0}.reply-wrap{margin-top:10px}.reply-toggle{border:0;background:none;color:var(--accent);font-size:11px;font-weight:600;padding:0}.reply-form{display:none;align-items:flex-end;gap:8px;margin-top:9px}.reply-form.show{display:flex}.reply-form textarea{flex:1;min-height:52px;resize:vertical;border:1px solid var(--border);border-radius:9px;background:var(--bg);color:var(--text);padding:9px;font:inherit;font-size:12px;outline:none}.reply-form textarea:focus{border-color:var(--accent)}@media(max-width:850px){.product-detail-grid{grid-template-columns:1fr!important;gap:26px!important}.product-gallery-main:hover>img{transform:none}}@media(max-width:950px){.related-grid{grid-template-columns:repeat(2,1fr)!important}}@media(max-width:520px){.related-grid{grid-template-columns:1fr!important}.product-detail-grid{padding-left:14px!important;padding-right:14px!important}.product-facts{grid-template-columns:repeat(2,1fr)}.reply-form{flex-direction:column;align-items:stretch}}</style>
-@if($product->images->isNotEmpty())<script>(function(){const images=@json($product->images->pluck('url')->values());let current=0;const main=document.getElementById('gallery-main-img'),thumbs=document.querySelectorAll('.gallery-thumb'),index=document.getElementById('gallery-index');window.akGalleryGo=function(i){current=(i+images.length)%images.length;main.src=images[current];if(index)index.textContent=current+1;thumbs.forEach((t,n)=>t.classList.toggle('active',n===current))};window.akGalleryMove=function(step){window.akGalleryGo(current+step)};const area=document.getElementById('product-main-image');area?.addEventListener('mousemove',e=>{const r=area.getBoundingClientRect();main.style.transformOrigin=((e.clientX-r.left)/r.width*100)+'% '+((e.clientY-r.top)/r.height*100)+'%'});area?.addEventListener('mouseleave',()=>main.style.transformOrigin='center')})();</script>@endif
+<style>.product-gallery-main{position:relative;aspect-ratio:1;background:var(--surface);border:1px solid var(--border);border-radius:22px;display:flex;align-items:center;justify-content:center;color:var(--text-faint);overflow:hidden;cursor:zoom-in}.product-gallery-main>img{width:100%;height:100%;object-fit:contain}.gallery-zoom-lens{position:absolute;top:0;left:0;border-radius:9px;border:1.5px solid var(--accent);background:color-mix(in oklch,var(--accent) 14%,transparent);box-shadow:0 0 0 2000px rgba(10,12,18,.14);pointer-events:none;opacity:0;visibility:hidden;transition:opacity .15s ease;z-index:4}.gallery-zoom-lens.active{opacity:1;visibility:visible}.gallery-zoom-pane{position:absolute;top:0;left:calc(100% + 24px);width:100%;aspect-ratio:1;border-radius:22px;border:1px solid var(--border);background-color:var(--surface);background-repeat:no-repeat;box-shadow:0 30px 70px rgba(10,12,18,.28);opacity:0;visibility:hidden;pointer-events:none;transition:opacity .18s ease;z-index:45}.gallery-zoom-pane.active{opacity:1;visibility:visible}.gallery-nav{position:absolute;top:50%;transform:translateY(-50%);width:40px;height:40px;border-radius:12px;border:1px solid var(--border);background:color-mix(in oklch,var(--surface) 84%,transparent);backdrop-filter:blur(10px);color:var(--text);display:grid;place-items:center;z-index:3}.gallery-prev{left:14px}.gallery-next{right:14px}.gallery-count{position:absolute;right:14px;bottom:14px;padding:5px 9px;border-radius:8px;background:rgba(10,12,18,.65);color:white;font-size:10px;backdrop-filter:blur(7px)}.gallery-thumb{width:68px;height:68px;border-radius:11px;border:1px solid var(--border);background:var(--surface);padding:3px;overflow:hidden;transition:.18s}.gallery-thumb img{width:100%;height:100%;object-fit:contain}.gallery-thumb.active{border-color:var(--accent);box-shadow:0 0 0 2px var(--accent-soft)}.product-facts{display:grid;grid-template-columns:repeat(3,1fr);gap:1px;margin-top:20px;border:1px solid var(--border);border-radius:13px;overflow:hidden;background:var(--border)}.product-facts div{background:var(--surface);padding:11px 13px}.product-facts span{display:block;font-size:9px;color:var(--text-faint);text-transform:uppercase;letter-spacing:.06em}.product-facts strong{display:block;font-size:12px;font-weight:600;margin-top:3px}.review-replies{margin-top:14px;padding-left:15px;border-left:2px solid var(--accent-soft);display:grid;gap:10px}.review-reply{display:flex;gap:9px;padding:10px 12px;background:var(--bg-elevated);border-radius:10px}.reply-avatar{width:28px;height:28px;border-radius:8px;background:var(--accent-soft);color:var(--accent);display:grid;place-items:center;font-size:9px;font-weight:700;overflow:hidden;flex-shrink:0}.reply-avatar img{width:100%;height:100%;object-fit:cover}.review-reply strong{font-size:11px;font-weight:700}.admin-reply-badge{font-size:8px;padding:2px 5px;border-radius:5px;background:var(--accent);color:white;font-weight:700}.reply-delete{border:0;background:none;color:var(--text-faint);font-size:17px;padding:0}.reply-wrap{margin-top:10px}.reply-toggle{border:0;background:none;color:var(--accent);font-size:11px;font-weight:600;padding:0}.reply-form{display:none;align-items:flex-end;gap:8px;margin-top:9px}.reply-form.show{display:flex}.reply-form textarea{flex:1;min-height:52px;resize:vertical;border:1px solid var(--border);border-radius:9px;background:var(--bg);color:var(--text);padding:9px;font:inherit;font-size:12px;outline:none}.reply-form textarea:focus{border-color:var(--accent)}@media(max-width:850px){.product-detail-grid{grid-template-columns:1fr!important;gap:26px!important}.gallery-zoom-pane,.gallery-zoom-lens{display:none!important}}@media(max-width:950px){.related-grid{grid-template-columns:repeat(2,1fr)!important}}@media(max-width:520px){.related-grid{grid-template-columns:1fr!important}.product-detail-grid{padding-left:14px!important;padding-right:14px!important}.product-facts{grid-template-columns:repeat(2,1fr)}.reply-form{flex-direction:column;align-items:stretch}}</style>
+@if($product->images->isNotEmpty())<script>(function(){
+    const images=@json($product->images->pluck('url')->values());
+    let current=0;
+    const main=document.getElementById('gallery-main-img'),thumbs=document.querySelectorAll('.gallery-thumb'),index=document.getElementById('gallery-index');
+    const area=document.getElementById('product-main-image'),lens=document.getElementById('gallery-zoom-lens'),pane=document.getElementById('gallery-zoom-pane');
+    const ZOOM=2.4;
+
+    function paneImage(){ if(pane) pane.style.backgroundImage="url('"+images[current]+"')"; }
+
+    window.akGalleryGo=function(i){
+        current=(i+images.length)%images.length;
+        main.src=images[current];
+        if(index)index.textContent=current+1;
+        thumbs.forEach((t,n)=>t.classList.toggle('active',n===current));
+        paneImage();
+    };
+    window.akGalleryMove=function(step){window.akGalleryGo(current+step)};
+
+    function canZoom(){
+        return !!(area && lens && pane) && window.matchMedia('(hover:hover) and (pointer:fine) and (min-width:851px)').matches;
+    }
+
+    area?.addEventListener('mouseenter',()=>{
+        if(!canZoom()) return;
+        paneImage();
+        lens.classList.add('active');
+        pane.classList.add('active');
+    });
+
+    area?.addEventListener('mousemove',e=>{
+        if(!canZoom()) return;
+        const r=area.getBoundingClientRect();
+
+        // The <img> uses object-fit:contain, so it may be letterboxed inside
+        // the square box. Map the cursor onto the actual rendered picture
+        // rect (not the box) so the lens and the zoomed pane agree on the
+        // same point of the image.
+        const naturalW=main.naturalWidth||r.width, naturalH=main.naturalHeight||r.height;
+        const contentScale=Math.min(r.width/naturalW, r.height/naturalH);
+        const renderedW=naturalW*contentScale, renderedH=naturalH*contentScale;
+        const offsetX=(r.width-renderedW)/2, offsetY=(r.height-renderedH)/2;
+
+        // Zoom just enough to always fill the pane, even if the picture is
+        // heavily letterboxed.
+        const effectiveZoom=Math.max(ZOOM, r.width/renderedW, r.height/renderedH);
+
+        const lensW=renderedW/effectiveZoom, lensH=renderedH/effectiveZoom;
+        let ix=e.clientX-r.left-offsetX-lensW/2;
+        let iy=e.clientY-r.top-offsetY-lensH/2;
+        ix=Math.max(0,Math.min(ix,renderedW-lensW));
+        iy=Math.max(0,Math.min(iy,renderedH-lensH));
+
+        lens.style.width=lensW+'px';
+        lens.style.height=lensH+'px';
+        lens.style.transform='translate('+(offsetX+ix)+'px,'+(offsetY+iy)+'px)';
+
+        const fx=(renderedW-lensW)>0 ? ix/(renderedW-lensW) : 0.5;
+        const fy=(renderedH-lensH)>0 ? iy/(renderedH-lensH) : 0.5;
+        const scaledW=renderedW*effectiveZoom, scaledH=renderedH*effectiveZoom;
+        pane.style.backgroundSize=scaledW+'px '+scaledH+'px';
+        pane.style.backgroundPosition=(-fx*(scaledW-r.width))+'px '+(-fy*(scaledH-r.height))+'px';
+    });
+
+    area?.addEventListener('mouseleave',()=>{
+        lens?.classList.remove('active');
+        pane?.classList.remove('active');
+    });
+})();</script>@endif
