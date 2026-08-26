@@ -1,0 +1,7 @@
+<?php
+use Illuminate\Database\Migrations\Migration; use Illuminate\Database\Schema\Blueprint; use Illuminate\Support\Facades\Schema;
+return new class extends Migration { public function up():void{
+ Schema::table('business_settings',fn(Blueprint $t)=>$t->decimal('platform_commission_percent',5,2)->default(10)->after('currency'));
+ Schema::create('seller_transactions',function(Blueprint $t){$t->id();$t->foreignId('seller_id')->constrained('users')->cascadeOnDelete();$t->foreignId('order_item_id')->nullable()->constrained()->nullOnDelete();$t->string('type');$t->bigInteger('gross_amount')->default(0);$t->bigInteger('commission_amount')->default(0);$t->bigInteger('net_amount');$t->string('status')->default('available');$t->text('description')->nullable();$t->timestamps();$t->unique(['order_item_id','type']);$t->index(['seller_id','status']);});
+ Schema::create('seller_payouts',function(Blueprint $t){$t->id();$t->foreignId('seller_id')->constrained('users')->cascadeOnDelete();$t->foreignId('processed_by')->nullable()->constrained('users')->nullOnDelete();$t->string('number')->unique();$t->unsignedBigInteger('amount');$t->string('status')->default('pending');$t->string('method')->default('bank_transfer');$t->string('reference')->nullable();$t->text('note')->nullable();$t->timestamp('processed_at')->nullable();$t->timestamps();});
+ } public function down():void{Schema::dropIfExists('seller_payouts');Schema::dropIfExists('seller_transactions');Schema::table('business_settings',fn(Blueprint $t)=>$t->dropColumn('platform_commission_percent'));}};

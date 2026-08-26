@@ -1,0 +1,49 @@
+<?php
+namespace App\Http\Controllers\Admin;
+
+use App\Http\Controllers\Controller;
+use App\Models\Category;
+use Illuminate\Http\Request;
+use Illuminate\Support\Str;
+use Illuminate\Validation\Rule;
+
+class CategoryController extends Controller
+{
+    public function index(Request $request)
+    {
+        $categories = Category::with('parent')->withCount(['products', 'children'])
+            ->when($request->filled('search'), fn ($q) => $q->where('name', 'like', '%'.$request->string('search').'%'))
+            ->orderBy('sort_order')->orderBy('name')->paginate(20)->withQueryString();
+        return view('admin.categories.index', compact('categories'));
+    }
+    public function create() { return view('admin.categories.form', ['category'=>null, 'parents'=>Category::topLevel()->orderBy('name')->get()]); }
+    public function store(Request $request)
+    {
+        $data=$this->validated($request); $data['slug']=$this->uniqueSlug($data['name']); Category::create($data);
+        return redirect()->route('admin.categories.index')->with('status','Категория создана.');
+    }
+    public function edit(Category $category)
+    {
+        return view('admin.categories.form', ['category'=>$category,'parents'=>Category::topLevel()->whereKeyNot($category->id)->orderBy('name')->get()]);
+    }
+    public function update(Request $request, Category $category)
+    {
+        $data=$this->validated($request,$category); if($category->name!==$data['name']) $data['slug']=$this->uniqueSlug($data['name'],$category); $category->update($data);
+        return redirect()->route('admin.categories.index')->with('status','Категория обновлена.');
+    }
+    public function destroy(Category $category)
+    {
+        if($category->children()->exists()||$category->products()->exists()) return back()->withErrors(['category'=>'Нельзя удалить категорию с подкатегориями или товарами.']);
+        $category->delete(); return back()->with('status','Категория удалена.');
+    }
+    private function validated(Request $request, ?Category $category=null): array
+    {
+        return $request->validate(['name'=>['required','string','max:120'],'parent_id'=>['nullable','exists:categories,id',Rule::notIn(array_filter([$category?->id]))],'icon'=>['nullable','string','max:60'],'sort_order'=>['required','integer','min:0','max:9999']]);
+    }
+    private function uniqueSlug(string $name, ?Category $ignore=null): string
+    {
+        $base=Str::slug($name)?:'category'; $slug=$base; $index=2;
+        while(Category::where('slug',$slug)->when($ignore,fn($q)=>$q->whereKeyNot($ignore->id))->exists()) $slug=$base.'-'.$index++;
+        return $slug;
+    }
+}
