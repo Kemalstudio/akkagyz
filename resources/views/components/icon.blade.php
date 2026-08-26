@@ -80,6 +80,9 @@
     @case('arrow-right')
         <path d="M5 12h14M13 6l6 6-6 6"/>
         @break
+    @case('refresh')
+        <path d="M3 12a9 9 0 0 1 15-6.7L21 8"/><path d="M21 3v5h-5"/><path d="M21 12a9 9 0 0 1-15 6.7L3 16"/><path d="M3 21v-5h5"/>
+        @break
     @case('trash')
         <path d="M3 6h18M8 6V4a1 1 0 0 1 1-1h6a1 1 0 0 1 1 1v2m2 0-1 14a1 1 0 0 1-1 1H7a1 1 0 0 1-1-1L5 6"/>
         @break

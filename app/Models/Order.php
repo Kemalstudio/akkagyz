@@ -11,10 +11,23 @@ class Order extends Model
 {
     use HasFactory;
 
+    public const STATUS_LABELS = [
+        'pending' => 'Ожидает обработки',
+        'processing' => 'В обработке',
+        'shipped' => 'В пути',
+        'delivered' => 'Доставлен',
+        'cancelled' => 'Отменён',
+    ];
+
     protected $fillable = [
         'number', 'user_id', 'idempotency_key', 'promo_code_id', 'promo_code', 'status', 'subtotal', 'discount', 'total',
         'city', 'address', 'phone', 'delivery_method', 'payment_method', 'payment_status', 'tracking_number', 'admin_note', 'cancelled_at', 'stock_restored_at',
     ];
+
+    public function statusLabel(): string
+    {
+        return self::STATUS_LABELS[$this->status] ?? $this->status;
+    }
 
     /** @return BelongsTo<User, $this> */
     public function user(): BelongsTo

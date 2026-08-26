@@ -11,6 +11,10 @@ use App\Models\OrderItem;
 use App\Models\Product;
 use App\Models\User;
 use App\Notifications\MobilePasswordResetCode;
+use App\Notifications\NewOrderForSeller;
+use App\Notifications\OrderPlaced;
+use App\Services\OrderStatusService;
+use App\Services\Payments\PaymentGatewayResolver;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Hash;
@@ -18,6 +22,7 @@ use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
 use Illuminate\Validation\Rules\Password;
 use Illuminate\Validation\Rule;
+use Illuminate\Validation\ValidationException;
 
 class MobileController extends Controller
 {
@@ -282,7 +287,7 @@ class MobileController extends Controller
         ]);
     }
 
-    public function checkout(Request $request, \App\Services\PromoCodeService $promos): JsonResponse
+    public function checkout(Request $request, \App\Services\PromoCodeService $promos, PaymentGatewayResolver $gateways): JsonResponse
     {
         $data = $request->validate([
             'idempotency_key' => ['sometimes', 'uuid'],
@@ -309,7 +314,7 @@ class MobileController extends Controller
             return response()->json(['message' => 'Корзина пуста.'], 422);
         }
 
-        $order = DB::transaction(function () use ($request, $data, $cart, $promos) {
+        $order = DB::transaction(function () use ($request, $data, $cart, $promos, $gateways) {
             $rows = [];
             foreach ($cart as $item) {
                 $product = Product::query()->lockForUpdate()->find($item->product_id);
@@ -336,8 +341,9 @@ class MobileController extends Controller
                 ...$data,
             ]);
 
+            $settings = BusinessSetting::current();
             foreach ($rows as [$item, $product]) {
-                OrderItem::create([
+                $orderItem = OrderItem::create([
                     'order_id' => $order->id,
                     'product_id' => $product->id,
                     'seller_id' => $product->seller_id,
@@ -348,9 +354,17 @@ class MobileController extends Controller
                 ]);
                 $product->decrement('stock', $item->quantity);
                 $product->increment('sales_count', $item->quantity);
+
+                if ($product->seller && $settings->seller_notifications) {
+                    $product->seller->notify(new NewOrderForSeller($orderItem));
+                }
             }
+            $gateways->resolve($order->payment_method)->charge($order);
             $request->user()->cartItems()->delete();
             if($promo)$promo->usages()->create(['user_id'=>$request->user()->id,'order_id'=>$order->id,'discount'=>$promoDiscount]);
+            if ($settings->order_notifications) {
+                $request->user()->notify(new OrderPlaced($order));
+            }
 
             return $order->load('items.product.images');
         });
@@ -368,26 +382,15 @@ class MobileController extends Controller
         return response()->json(['data' => $this->orderData($order->load('items.product.images'))]);
     }
 
-    public function cancelOrder(Request $request, Order $order): JsonResponse
+    public function cancelOrder(Request $request, Order $order, OrderStatusService $orderStatus): JsonResponse
     {
         abort_unless($order->user_id === $request->user()->id, 404);
-        if (! in_array($order->status, ['pending', 'processing'], true)) {
-            return response()->json(['message' => 'Этот заказ уже нельзя отменить.'], 422);
-        }
 
-        DB::transaction(function () use ($order) {
-            $lockedOrder = Order::query()->whereKey($order->id)->lockForUpdate()->firstOrFail();
-            $lockedOrder->load('items');
-            if (! in_array($lockedOrder->status, ['pending', 'processing'], true)) {
-                abort(422, 'Этот заказ уже нельзя отменить.');
-            }
-            foreach ($lockedOrder->items as $item) {
-                Product::query()->whereKey($item->product_id)->increment('stock', $item->quantity);
-                Product::query()->whereKey($item->product_id)->decrement('sales_count', $item->quantity);
-                $item->update(['status' => 'cancelled']);
-            }
-            $lockedOrder->update(['status' => 'cancelled']);
-        });
+        try {
+            $orderStatus->cancel($order, $request->user());
+        } catch (ValidationException $e) {
+            return response()->json(['message' => collect($e->errors())->flatten()->first()], 422);
+        }
 
         return response()->json(['message' => 'Заказ отменён.', 'data' => $this->orderData($order->fresh('items.product.images'))]);
     }

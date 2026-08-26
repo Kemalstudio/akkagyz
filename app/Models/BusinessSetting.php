@@ -11,8 +11,13 @@ class BusinessSetting extends Model
     {
         if(!Schema::hasTable('business_settings')) return new self;
         $defaults=['site_name'=>'AK KAGYZ','phone'=>'+99364005374','contact_button_enabled'=>true,'contact_phone_visible'=>true,'currency'=>'TMT','primary_color'=>'#285ED6'];
-        if(!Schema::hasTable('cache')) return static::firstOrCreate([],$defaults);
-        return Cache::remember('business_settings.current',3600,fn()=>static::firstOrCreate([],$defaults));
+        // ->fresh() matters: right after the very first insert, the in-memory
+        // model only knows the columns we passed — booleans like
+        // order_notifications that rely on the migration's DB-level default
+        // would read as null/false until re-fetched from the row itself.
+        $resolve=fn()=>static::firstOrCreate([],$defaults)->fresh();
+        if(!Schema::hasTable('cache')) return $resolve();
+        return Cache::remember('business_settings.current',3600,$resolve);
     }
     public static function forgetCache(): void { Cache::forget('business_settings.current'); }
     public function getLogoUrlAttribute(): ?string { return $this->logo_path ? asset('storage/'.$this->logo_path) : null; }

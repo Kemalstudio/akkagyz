@@ -9,6 +9,7 @@
 
         <form method="POST" action="{{ route('checkout.store') }}">
             @csrf
+            <input type="hidden" name="idempotency_key" value="{{ \Illuminate\Support\Str::uuid() }}">
             <div style="margin-bottom:16px"><label class="label">Промокод</label><input class="input" name="promo_code" value="{{ old('promo_code') }}" placeholder="Введите код скидки">@error('promo_code')<div style="color:var(--danger);font-size:12px;margin-top:5px">{{ $message }}</div>@enderror</div>
             <div style="display:grid;grid-template-columns:1fr 380px;gap:28px;align-items:start;">
                 <div style="display:flex;flex-direction:column;gap:20px;">
@@ -42,17 +43,14 @@
 
                     <div style="border:1px solid var(--border);background:var(--surface);border-radius:16px;padding:24px;">
                         <div style="font-size:16px;font-weight:900;margin-bottom:16px;">Способ оплаты</div>
-                        <div style="display:flex;flex-direction:column;gap:12px;">
-                            <label style="display:flex;align-items:center;gap:14px;padding:16px;border-radius:12px;border:1.5px solid var(--border);cursor:pointer;">
-                                <input type="radio" name="payment_method" value="cash" checked style="width:20px;height:20px;accent-color:var(--accent);">
-                                <x-icon name="money" :size="22" style="color:var(--accent);" />
-                                <div style="flex:1;font-weight:800;font-size:14px;">Наличными курьеру</div>
-                            </label>
-                            <label style="display:flex;align-items:center;gap:14px;padding:16px;border-radius:12px;border:1.5px solid var(--border);opacity:.5;cursor:not-allowed;">
-                                <input type="radio" name="payment_method_disabled" disabled style="width:20px;height:20px;">
-                                <x-icon name="money" :size="22" />
-                                <div style="flex:1;"><div style="font-weight:800;font-size:14px;">Банковская карта</div><div style="font-size:12px;color:var(--text-faint);margin-top:2px;">Скоро — подключаем платёжного провайдера</div></div>
-                            </label>
+                        <input type="hidden" name="payment_method" value="cash">
+                        <div style="display:flex;align-items:center;gap:14px;padding:16px;border-radius:12px;border:1.5px solid var(--accent);background:var(--accent-soft);">
+                            <x-icon name="money" :size="22" style="color:var(--accent);" />
+                            <div style="flex:1;">
+                                <div style="font-weight:800;font-size:14px;">Наличными при получении</div>
+                                <div style="font-size:12px;color:var(--text-faint);margin-top:2px;">Оплатите курьеру или в пункте самовывоза — предоплата не требуется</div>
+                            </div>
+                            <x-icon name="check" :size="18" style="color:var(--accent);" />
                         </div>
                     </div>
                 </div>

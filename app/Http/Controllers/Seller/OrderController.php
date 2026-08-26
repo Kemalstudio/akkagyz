@@ -4,7 +4,9 @@ namespace App\Http\Controllers\Seller;
 
 use App\Http\Controllers\Controller;
 use App\Models\OrderItem;
+use App\Services\OrderStatusService;
 use Illuminate\Http\Request;
+use Illuminate\Validation\ValidationException;
 
 class OrderController extends Controller
 {
@@ -18,12 +20,15 @@ class OrderController extends Controller
         return view('seller.orders', compact('orderItems'));
     }
 
-    public function update(Request $request, OrderItem $orderItem)
+    public function update(Request $request, OrderItem $orderItem, OrderStatusService $orderStatus)
     {
-        abort_unless($orderItem->seller_id === $request->user()->id, 403);
+        $data = $request->validate(['status' => ['required', 'in:pending,shipped,delivered']]);
 
-        $request->validate(['status' => ['required', 'in:pending,shipped,delivered']]);
-        $orderItem->update(['status' => $request->input('status')]);
+        try {
+            $orderStatus->updateItemStatus($orderItem, $data['status'], $request->user());
+        } catch (ValidationException $e) {
+            return back()->withErrors($e->errors());
+        }
 
         return back()->with('status', 'Статус заказа обновлён.');
     }
