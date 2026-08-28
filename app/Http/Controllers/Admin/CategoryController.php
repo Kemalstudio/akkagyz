@@ -36,7 +36,7 @@ class CategoryController extends Controller
 
         return view('admin.categories.index', compact('categories', 'overview', 'parents'));
     }
-    public function create() { return view('admin.categories.form', ['category'=>null, 'parents'=>Category::topLevel()->orderBy('name')->get()]); }
+    public function create() { return view('admin.categories.form', ['category'=>null, 'parents'=>$this->parentOptions()]); }
     public function store(Request $request)
     {
         $data=$this->validated($request); $data['slug']=$this->uniqueSlug($data['name']); Category::create($data);
@@ -44,7 +44,7 @@ class CategoryController extends Controller
     }
     public function edit(Category $category)
     {
-        return view('admin.categories.form', ['category'=>$category,'parents'=>Category::topLevel()->whereKeyNot($category->id)->orderBy('name')->get()]);
+        return view('admin.categories.form', ['category'=>$category,'parents'=>$this->parentOptions($category)]);
     }
     public function update(Request $request, Category $category)
     {
@@ -58,7 +58,34 @@ class CategoryController extends Controller
     }
     private function validated(Request $request, ?Category $category=null): array
     {
-        return $request->validate(['name'=>['required','string','max:120'],'parent_id'=>['nullable','exists:categories,id',Rule::notIn(array_filter([$category?->id]))],'icon'=>['nullable','string','max:60'],'sort_order'=>['required','integer','min:0','max:9999']]);
+        $forbiddenParentIds = $category ? [$category->id, ...$category->descendantIds()] : [];
+
+        return $request->validate(['name'=>['required','string','max:120'],'parent_id'=>['nullable','exists:categories,id',Rule::notIn($forbiddenParentIds)],'icon'=>['nullable','string','max:60'],'sort_order'=>['required','integer','min:0','max:9999']]);
+    }
+
+    /**
+     * Every category, indented by depth, for the parent-category dropdown.
+     * Editing a category excludes itself and its descendants to prevent a
+     * cycle (a category cannot become its own ancestor).
+     */
+    private function parentOptions(?Category $exclude = null): \Illuminate\Support\Collection
+    {
+        $forbiddenIds = $exclude ? [$exclude->id, ...$exclude->descendantIds()] : [];
+        $byParent = Category::orderBy('sort_order')->orderBy('name')->get(['id', 'parent_id', 'name'])->groupBy('parent_id');
+
+        $options = collect();
+        $walk = function ($parentId, int $depth) use (&$walk, &$options, $byParent, $forbiddenIds) {
+            foreach ($byParent->get($parentId, collect()) as $node) {
+                if (in_array($node->id, $forbiddenIds, true)) {
+                    continue;
+                }
+                $options->push((object) ['id' => $node->id, 'label' => str_repeat('— ', $depth).$node->name]);
+                $walk($node->id, $depth + 1);
+            }
+        };
+        $walk(null, 0);
+
+        return $options;
     }
     private function uniqueSlug(string $name, ?Category $ignore=null): string
     {

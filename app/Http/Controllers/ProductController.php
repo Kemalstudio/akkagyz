@@ -26,7 +26,7 @@ class ProductController extends Controller
             }
         }
 
-        $categoryRoot = $category?->parent ?: $category;
+        $categoryRoot = $category?->root();
         $priceCeiling = (int) ((clone $query)->max('price') ?? 0);
 
         if ($request->filled('min_price')) {
