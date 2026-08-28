@@ -10,23 +10,31 @@ class HomeController extends Controller
 {
     public function index()
     {
-        $stores = User::approvedSellers()
-            ->withCount(['products' => fn ($q) => $q->active()])
+        $storeQuery = User::approvedSellers()->where('is_blocked', false);
+        $storesTotal = (clone $storeQuery)->count();
+
+        $stores = (clone $storeQuery)
+            ->withCount(['products' => fn ($query) => $query
+                ->active()
+                ->whereNull('archived_at')])
             ->orderByDesc('is_vip')
             ->orderByDesc('store_views')
             ->limit(12)
             ->get();
 
+        $productQuery = Product::query()->customerVisible()->marketplace();
+        $productRelations = ['images', 'category', 'seller'];
+
         return view('marketplace.home', [
             'stores' => $stores,
-            'storesTotal' => User::approvedSellers()->count(),
+            'storesTotal' => $storesTotal,
             'stats' => [
-                'stores' => User::approvedSellers()->count(),
-                'products' => Product::active()->marketplace()->count(),
+                'stores' => $storesTotal,
+                'products' => (clone $productQuery)->count(),
             ],
-            'vipProducts' => Product::active()->marketplace()->vip()->with('images')->orderByDesc('created_at')->limit(4)->get(),
-            'popular' => Product::active()->marketplace()->with('images')->orderByDesc('sales_count')->limit(4)->get(),
-            'newest' => Product::active()->marketplace()->with('images')->orderByDesc('created_at')->limit(4)->get(),
+            'vipProducts' => (clone $productQuery)->vip()->with($productRelations)->latest()->limit(4)->get(),
+            'popular' => (clone $productQuery)->with($productRelations)->orderByDesc('sales_count')->limit(4)->get(),
+            'newest' => (clone $productQuery)->with($productRelations)->latest()->limit(4)->get(),
         ]);
     }
 }
