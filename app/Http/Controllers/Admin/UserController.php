@@ -18,6 +18,7 @@ class UserController extends Controller
                 $query->where(fn ($q) => $q->where('name', 'like', $term)->orWhere('email', 'like', $term)->orWhere('phone','like',$term));
             })
             ->when($request->filled('status'), fn ($q) => $q->where('is_blocked', $request->string('status') === 'blocked'))
+            ->when($request->boolean('new'), fn ($q) => $q->where('created_at', '>=', now()->subDays(30)))
             ->latest()->paginate(20)->withQueryString();
 
         return view('admin.users', compact('users','stats'));
