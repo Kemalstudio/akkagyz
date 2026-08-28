@@ -15,7 +15,7 @@ class ProductController extends Controller
         $query = Product::query()->active()->own()->with(['category', 'seller', 'images']);
 
         if ($request->filled('q')) {
-            $query->where('name', 'like', '%'.$request->string('q').'%');
+            $query->search($request->string('q'));
         }
 
         $category = null;
@@ -52,7 +52,9 @@ class ProductController extends Controller
             'rating' => $query->orderByDesc('rating_avg'),
             'name_asc' => $query->orderBy('name'),
             'name_desc' => $query->orderByDesc('name'),
-            default => $query->orderByDesc('sales_count'),
+            default => $request->filled('q')
+                ? $query->orderByRelevance($request->string('q'))->orderByDesc('sales_count')
+                : $query->orderByDesc('sales_count'),
         };
 
         $perPage = in_array((int) $request->input('per_page'), [30, 50, 100, 200, 300], true)
@@ -60,6 +62,13 @@ class ProductController extends Controller
             : 30;
 
         $products = $query->paginate($perPage)->withQueryString();
+
+        if ($request->boolean('partial')) {
+            return response()->json([
+                'html' => view('storefront.partials.product-cards', ['products' => $products])->render(),
+                'nextPageUrl' => $products->nextPageUrl(),
+            ]);
+        }
 
         return view('storefront.catalog', [
             'products' => $products,
@@ -82,7 +91,8 @@ class ProductController extends Controller
 
         $products = Product::active()
             ->own()
-            ->where('name', 'like', "%{$q}%")
+            ->search($q)
+            ->orderByRelevance($q)
             ->orderByDesc('sales_count')
             ->limit(5)
             ->get(['name', 'slug', 'price']);
