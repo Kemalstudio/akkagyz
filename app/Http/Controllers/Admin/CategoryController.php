@@ -11,10 +11,30 @@ class CategoryController extends Controller
 {
     public function index(Request $request)
     {
+        $perPage = in_array($request->integer('per_page'), [20, 50, 100], true)
+            ? $request->integer('per_page')
+            : 20;
+        $level = in_array($request->input('level'), ['top', 'sub'], true)
+            ? $request->input('level')
+            : null;
+
+        $overview = [
+            'total' => Category::count(),
+            'top' => Category::whereNull('parent_id')->count(),
+            'sub' => Category::whereNotNull('parent_id')->count(),
+            'empty' => Category::doesntHave('products')->count(),
+        ];
+
         $categories = Category::with('parent')->withCount(['products', 'children'])
             ->when($request->filled('search'), fn ($q) => $q->where('name', 'like', '%'.$request->string('search').'%'))
-            ->orderBy('sort_order')->orderBy('name')->paginate(20)->withQueryString();
-        return view('admin.categories.index', compact('categories'));
+            ->when($request->integer('parent_id') > 0, fn ($q) => $q->where('parent_id', $request->integer('parent_id')))
+            ->when($level === 'top', fn ($q) => $q->whereNull('parent_id'))
+            ->when($level === 'sub', fn ($q) => $q->whereNotNull('parent_id'))
+            ->when($request->boolean('empty'), fn ($q) => $q->doesntHave('products'))
+            ->orderBy('sort_order')->orderBy('name')->paginate($perPage)->withQueryString();
+        $parents = Category::topLevel()->orderBy('name')->get(['id', 'name']);
+
+        return view('admin.categories.index', compact('categories', 'overview', 'parents'));
     }
     public function create() { return view('admin.categories.form', ['category'=>null, 'parents'=>Category::topLevel()->orderBy('name')->get()]); }
     public function store(Request $request)
