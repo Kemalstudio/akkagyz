@@ -13,13 +13,13 @@ class DashboardController extends Controller
     public function index()
     {
         $now = now();
-        $thisMonth = Order::whereBetween('created_at', [$now->copy()->startOfMonth(), $now->copy()->endOfMonth()]);
-        $lastMonth = Order::whereBetween('created_at', [$now->copy()->subMonthNoOverflow()->startOfMonth(), $now->copy()->subMonthNoOverflow()->endOfMonth()]);
-        $thisMonthRevenue = (int) (clone $thisMonth)->sum('total');
-        $lastMonthRevenue = (int) (clone $lastMonth)->sum('total');
+        // "Выручка" отражает только фактически полученные деньги (заказ доставлен —
+        // при наложенном платеже деньги получены при вручении), как и учёт в MarketplaceFinanceService.
+        $thisMonthRevenue = (int) Order::whereBetween('created_at', [$now->copy()->startOfMonth(), $now->copy()->endOfMonth()])->where('status', 'delivered')->sum('total');
+        $lastMonthRevenue = (int) Order::whereBetween('created_at', [$now->copy()->subMonthNoOverflow()->startOfMonth(), $now->copy()->subMonthNoOverflow()->endOfMonth()])->where('status', 'delivered')->sum('total');
 
         $stats = [
-            'revenue' => Order::sum('total'),
+            'revenue' => (int) Order::where('status', 'delivered')->sum('total'),
             'orders' => Order::count(),
             'sellers' => User::where('role', 'seller')->where('store_status', 'approved')->count(),
             'pendingSellers' => User::where('role', 'seller')->where('store_status', 'pending')->count(),
@@ -27,19 +27,19 @@ class DashboardController extends Controller
             'pendingProducts' => Product::where('status', 'pending')->count(),
             'thisMonthRevenue' => $thisMonthRevenue,
             'revenueGrowth' => $lastMonthRevenue > 0 ? round((($thisMonthRevenue - $lastMonthRevenue) / $lastMonthRevenue) * 100, 1) : ($thisMonthRevenue > 0 ? 100 : 0),
-            'averageOrder' => (int) round(Order::avg('total') ?? 0),
+            'averageOrder' => (int) round(Order::where('status', '!=', 'cancelled')->avg('total') ?? 0),
             'todayOrders' => Order::whereDate('created_at', $now->toDateString())->count(),
         ];
 
         $ordersForChart = Order::where('created_at', '>=', $now->copy()->subMonths(11)->startOfMonth())
-            ->get(['total', 'created_at']);
+            ->get(['total', 'created_at', 'status']);
         $revenueChart = collect(range(11, 0))->map(function ($monthsAgo) use ($now, $ordersForChart) {
             $month = $now->copy()->subMonths($monthsAgo);
             $orders = $ordersForChart->filter(fn ($order) => $order->created_at->isSameMonth($month));
 
             return [
                 'label' => Carbon::parse($month)->locale('ru')->translatedFormat('M'),
-                'revenue' => (int) $orders->sum('total'),
+                'revenue' => (int) $orders->where('status', 'delivered')->sum('total'),
                 'orders' => $orders->count(),
             ];
         })->values();
