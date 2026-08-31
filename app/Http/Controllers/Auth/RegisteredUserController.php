@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Models\User;
 use App\Notifications\NewSellerApplication;
 use App\Models\BusinessSetting;
+use App\Support\GuestCart;
 use Illuminate\Auth\Events\Registered;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -57,6 +58,7 @@ class RegisteredUserController extends Controller
         event(new Registered($user));
 
         Auth::login($user);
+        GuestCart::mergeInto($user);
 
         if ($isSeller) {
             if (BusinessSetting::current()->seller_notifications) {
