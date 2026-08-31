@@ -9,13 +9,13 @@
         @if($orderItems->isEmpty())
             <div style="color:var(--text-faint);font-size:14px;text-align:center;padding:40px 0;">Заказов пока нет.</div>
         @else
-        <table style="width:100%;border-collapse:collapse;">
+        <div class="admin-table-wrap"><table class="admin-table">
             <thead><tr><th>Заказ</th><th>Покупатель</th><th>Товар</th><th>Сумма</th><th>Статус</th></tr></thead>
             <tbody>
                 @foreach($orderItems as $item)
                 <tr>
                     <td style="font-weight:800;">#{{ $item->order->number }}</td>
-                    <td>{{ $item->order->user->name }}</td>
+                    <td>{{ $item->order->customerName() }}</td>
                     <td>{{ $item->product_name }} &times;{{ $item->quantity }}</td>
                     <td style="font-weight:700;">{{ number_format($item->price * $item->quantity, 0, '', ' ') }} TMT</td>
                     <td>
@@ -31,7 +31,7 @@
                 </tr>
                 @endforeach
             </tbody>
-        </table>
+        </table></div>
         <div style="margin-top:20px;">{{ $orderItems->links() }}</div>
         @endif
     </div>
