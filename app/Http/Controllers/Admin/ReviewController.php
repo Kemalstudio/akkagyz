@@ -5,7 +5,7 @@ class ReviewController extends Controller{
   $perPage=in_array($r->integer('per_page'),[15,30,50],true)?$r->integer('per_page'):15;
   $sort=in_array($r->input('sort'),['latest','oldest','rating_desc','rating_asc','reports_desc'],true)?$r->input('sort'):'latest';
   $search=mb_substr(trim((string)$r->input('search')),0,120);
-  $query=Review::with(['product','user'])->withCount('reports');
+  $query=Review::with(['product','user','replies.user'])->withCount('reports');
   $query->when($r->input('status')==='flagged',fn($q)=>$q->whereIn('status',['hidden','rejected']));
   $query->when($r->filled('status')&&$r->input('status')!=='flagged',fn($q)=>$q->where('status',$r->string('status')));
   $query->when($r->filled('rating'),fn($q)=>$q->where('rating',$r->integer('rating')));
