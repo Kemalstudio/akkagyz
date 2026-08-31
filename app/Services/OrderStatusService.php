@@ -21,10 +21,11 @@ use Illuminate\Validation\ValidationException;
  */
 class OrderStatusService
 {
-    private const ORDER_STATUSES = ['pending', 'processing', 'shipped', 'delivered', 'cancelled'];
+    private const ORDER_STATUSES = ['pending', 'confirmed', 'processing', 'shipped', 'delivered', 'cancelled'];
 
     private const ITEM_STATUS_FOR_ORDER_STATUS = [
         'pending' => 'pending',
+        'confirmed' => 'pending',
         'processing' => 'pending',
         'shipped' => 'shipped',
         'delivered' => 'delivered',
@@ -95,6 +96,7 @@ class OrderStatusService
 
             if (! empty($options['payment_status']) && $options['payment_status'] === 'paid' && ! $locked->payments()->where('status', 'succeeded')->exists()) {
                 $locked->payments()->create([
+                    'type' => 'payment',
                     'status' => 'succeeded',
                     'amount' => $locked->total,
                     'currency' => BusinessSetting::current()->currency ?: 'TMT',
@@ -117,7 +119,7 @@ class OrderStatusService
      */
     public function cancel(Order $order, ?User $actor, ?string $reason = null): Order
     {
-        if (! in_array($order->status, ['pending', 'processing'], true)) {
+        if (! in_array($order->status, ['pending', 'confirmed', 'processing'], true)) {
             throw ValidationException::withMessages(['status' => 'Этот заказ уже нельзя отменить.']);
         }
 
@@ -171,7 +173,7 @@ class OrderStatusService
             default => null,
         };
 
-        $rank = ['pending' => 0, 'processing' => 1, 'shipped' => 2, 'delivered' => 3];
+        $rank = ['pending' => 0, 'confirmed' => 1, 'processing' => 2, 'shipped' => 3, 'delivered' => 4];
         if ($next !== null && ($rank[$next] ?? -1) > ($rank[$order->status] ?? -1)) {
             $this->transition($order, $next, [
                 'sync_items' => false,
