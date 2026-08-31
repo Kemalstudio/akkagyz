@@ -27,7 +27,7 @@ class HomeController extends Controller
             ->values();
 
         return view('storefront.home', [
-            'banners' => Banner::active()->orderBy('sort_order')->get(),
+            'banners' => Banner::active()->forMain()->orderBy('sort_order')->get(),
             'categories' => $categories,
             'categorySections' => $categorySections,
             'popular' => Product::active()->own()->with('images')->orderByDesc('sales_count')->limit(4)->get(),
