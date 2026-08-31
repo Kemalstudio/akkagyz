@@ -22,7 +22,7 @@ class Order extends Model
     ];
 
     protected $fillable = [
-        'number', 'user_id', 'name', 'idempotency_key', 'access_token', 'promo_code_id', 'promo_code', 'status', 'subtotal', 'discount', 'total',
+        'number', 'user_id', 'name', 'idempotency_key', 'access_token', 'promo_code_id', 'promo_code', 'status', 'subtotal', 'discount', 'express_fee', 'total',
         'city', 'address', 'phone', 'delivery_method', 'payment_method', 'payment_status', 'tracking_number', 'admin_note', 'cancelled_at', 'stock_restored_at',
     ];
 
