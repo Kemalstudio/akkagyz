@@ -8,6 +8,7 @@ use App\Models\Product;
 use App\Models\ProductAttributeValue;
 use App\Models\User;
 use App\Notifications\ProductReviewed;
+use App\Support\Concerns\HandlesProductImages;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
@@ -15,6 +16,8 @@ use Illuminate\Support\Str;
 
 class ProductController extends Controller
 {
+    use HandlesProductImages;
+
     public function index(Request $request)
     {
         $statusLabels = [
@@ -122,7 +125,7 @@ class ProductController extends Controller
             'slug' => Str::slug($data['name']).'-'.Str::random(6),
             'status' => 'active',
         ]);
-        $this->storeImages($request, $product);
+        $this->storeProductImages($request, $product);
         $this->syncAttributeValues($product, $attributeValues);
 
         return redirect()->route('admin.products')->with('status', "Товар «{$product->name}» добавлен и опубликован.");
@@ -148,11 +151,7 @@ class ProductController extends Controller
 
         $product->update($data);
         if ($request->hasFile('images')) {
-            foreach ($product->images as $image) {
-                Storage::disk('public')->delete($image->path);
-                $image->delete();
-            }
-            $this->storeImages($request, $product);
+            $this->replaceProductImages($request, $product);
         }
         $this->syncAttributeValues($product, $attributeValues);
 
@@ -200,6 +199,7 @@ class ProductController extends Controller
             'price' => ['required', 'integer', 'min:0'],
             'compare_price' => ['nullable', 'integer', 'min:0'],
             'stock' => ['required', 'integer', 'min:0'],
+            'condition' => ['nullable', 'in:new,used'],
             'description' => ['nullable', 'string', 'max:5000'],
             'weight'=>['nullable','numeric','min:0'],'length'=>['nullable','numeric','min:0'],'width'=>['nullable','numeric','min:0'],'height'=>['nullable','numeric','min:0'],'low_stock_threshold'=>['nullable','integer','min:0'],'seo_title'=>['nullable','string','max:255'],'seo_description'=>['nullable','string','max:1000'],
             'images' => ['nullable', 'array', 'max:5'],
@@ -207,13 +207,6 @@ class ProductController extends Controller
             'attribute_values' => ['nullable', 'array'],
             'attribute_values.*' => ['nullable', 'string', 'max:255'],
         ]);
-    }
-
-    private function storeImages(Request $request, Product $product): void
-    {
-        foreach ($request->file('images', []) as $index => $image) {
-            $product->images()->create(['path' => $image->store('products', 'public'), 'sort_order' => $index]);
-        }
     }
 
     /** @param array<int|string, string|null> $values keyed by product_attribute_id */
