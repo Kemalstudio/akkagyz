@@ -1,6 +1,6 @@
 <x-layout title="Стать продавцом">
     <div class="wrap" style="padding:48px 24px 64px;max-width:600px;">
-        <div style="font-size:28px;font-weight:900;margin-bottom:8px;">Продавайте на AK KAGYZ</div>
+        <div style="font-size:28px;font-weight:900;margin-bottom:8px;">Продавайте на {{ $businessSettings->site_name }}</div>
         <div style="font-size:14px;color:var(--text-faint);margin-bottom:28px;">Заполните данные о магазине &mdash; заявка поступит на рассмотрение администратору.</div>
 
         <form method="POST" action="{{ route('seller.become.store') }}" style="border:1px solid var(--border);background:var(--surface);border-radius:16px;padding:28px;display:flex;flex-direction:column;gap:16px;">
