@@ -30,27 +30,34 @@
 
     var card = document.getElementById('ak-promo-card');
     var closeBtn = document.getElementById('ak-promo-close');
-    var canClose = false;
+    var canClose = true;
     var scrollY = 0;
 
-    scrollY = window.scrollY || 0;
-    document.body.style.overflow = 'hidden';
-    popup.style.display = 'flex';
-    requestAnimationFrame(function(){
-        requestAnimationFrame(function(){
-            popup.style.background = 'oklch(0.1 0.02 264 / 0.7)';
-            popup.style.backdropFilter = 'blur(4px)';
-            card.style.opacity = '1';
-            card.style.transform = 'translateY(0) scale(1)';
-        });
-    });
-
-    setTimeout(function(){
-        canClose = true;
+    function showPopup(){
+        // Do not stack two modal layers when the catalog filter drawer is in use.
+        if (document.body.classList.contains('catalog-filters-open')) {
+            setTimeout(showPopup, 1000);
+            return;
+        }
+        scrollY = window.scrollY || 0;
+        document.body.style.overflow = 'hidden';
+        popup.style.display = 'flex';
         closeBtn.style.opacity = '1';
         closeBtn.style.visibility = 'visible';
         closeBtn.style.transform = 'scale(1) rotate(0deg)';
-    }, 1000);
+        requestAnimationFrame(function(){
+            requestAnimationFrame(function(){
+                popup.style.background = 'oklch(0.1 0.02 264 / 0.7)';
+                popup.style.backdropFilter = 'blur(4px)';
+                card.style.opacity = '1';
+                card.style.transform = 'translateY(0) scale(1)';
+            });
+        });
+    }
+
+    // Let visitors orient themselves before showing the promotion, and keep
+    // the close control available from the first rendered frame.
+    setTimeout(showPopup, 2500);
 
     function closePopup(e){
         if (e) e.preventDefault();
