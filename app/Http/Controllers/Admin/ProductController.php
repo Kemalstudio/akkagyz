@@ -116,6 +116,7 @@ class ProductController extends Controller
     {
         $data = $this->validated($request);
         $data['is_vip'] = $request->boolean('is_vip');
+        $data['condition'] ??= 'new';
         $attributeValues = $data['attribute_values'] ?? [];
         unset($data['attribute_values']);
 
