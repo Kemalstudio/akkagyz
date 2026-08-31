@@ -26,6 +26,41 @@ it('provides categories filters and product details for mobile catalog', functio
     $this->getJson('/api/v1/products?min_price=70&max_price=80')->assertOk()->assertJsonCount(1, 'data');
 });
 
+it('searches product context and applies mobile commerce filters', function () {
+    $parent = Category::create(['name' => 'Office', 'slug' => 'office-parent', 'sort_order' => 1]);
+    $child = Category::create(['parent_id' => $parent->id, 'name' => 'Paper', 'slug' => 'paper-child', 'sort_order' => 1]);
+    $seller = User::factory()->create([
+        'role' => 'seller',
+        'store_name' => 'Paper Pro',
+        'store_slug' => 'paper-pro',
+        'store_status' => 'approved',
+        'is_blocked' => false,
+    ]);
+    $product = Product::create([
+        'seller_id' => $seller->id,
+        'category_id' => $child->id,
+        'name' => 'A4 Box',
+        'slug' => 'a4-box-mobile',
+        'description' => 'Premium cellulose sheets',
+        'price' => 80,
+        'compare_price' => 100,
+        'stock' => 6,
+        'rating_avg' => 4.7,
+        'status' => 'active',
+    ]);
+
+    $this->getJson('/api/v1/products?q=cellulose')
+        ->assertOk()->assertJsonPath('data.0.id', $product->id);
+    $this->getJson('/api/v1/products?q=Paper')
+        ->assertOk()->assertJsonPath('data.0.id', $product->id);
+    $this->getJson('/api/v1/products?category_id='.$parent->id)
+        ->assertOk()->assertJsonPath('data.0.id', $product->id);
+    $this->getJson('/api/v1/products?brand_id='.$seller->id.'&min_rating=4&on_sale=1')
+        ->assertOk()->assertJsonPath('data.0.id', $product->id);
+    $this->getJson('/api/v1/filters?category_id='.$parent->id)
+        ->assertOk()->assertJsonPath('data.brands.0.name', 'Paper Pro');
+});
+
 it('authenticates a mobile user and protects private resources', function () {
     User::factory()->create(['email' => 'mobile@example.com', 'password' => 'password123']);
 
@@ -38,7 +73,10 @@ it('authenticates a mobile user and protects private resources', function () {
         'name' => 'Updated Mobile User',
         'email' => 'mobile@example.com',
         'phone' => '+99364005374',
-    ])->assertOk()->assertJsonPath('data.name', 'Updated Mobile User');
+        'delivery_address' => 'Bitarap Turkmenistan 10',
+    ])->assertOk()
+        ->assertJsonPath('data.name', 'Updated Mobile User')
+        ->assertJsonPath('data.delivery_address', 'Bitarap Turkmenistan 10');
 });
 
 it('registers a new customer from the mobile application', function () {
