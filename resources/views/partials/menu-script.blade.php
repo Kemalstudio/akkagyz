@@ -1,5 +1,5 @@
 <script>
-var AK_MENU_IDS = ['acct-menu', 'notif-menu', 'catalog-mega', 'contact-menu', 'language-menu'];
+var AK_MENU_IDS = ['acct-menu', 'notif-menu', 'catalog-mega', 'contact-menu', 'language-menu', 'quick-create-menu'];
 function akToggleMenu(e, id){
     e.stopPropagation();
     var menu = document.getElementById(id);
