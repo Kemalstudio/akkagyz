@@ -27,7 +27,12 @@ class BannerController extends Controller
         $data['show_overlay'] = $request->boolean('show_overlay');
 
         $data['image_path'] = $request->file('image')->store('banners', 'public');
-        $data['sort_order'] = Banner::max('sort_order') + 1;
+
+        // New banners should lead the slider, so push every existing banner
+        // back a slot and slot this one in at the front (sort_order is
+        // unsigned, so shifting up rather than going negative).
+        Banner::query()->increment('sort_order');
+        $data['sort_order'] = 0;
 
         Banner::create($data);
 
