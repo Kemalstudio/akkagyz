@@ -12,11 +12,15 @@ class StoreController extends Controller
 {
     public function index(Request $request)
     {
-        $base = fn () => User::approvedSellers()->withCount(['products' => fn ($q) => $q->active()]);
+        $base = fn () => User::approvedSellers()
+            ->where('is_blocked', false)
+            ->withCount(['products' => fn ($query) => $query
+                ->active()
+                ->whereNull('archived_at')]);
 
         $stats = [
             'stores' => (clone $base())->count(),
-            'products' => Product::active()->whereHas('seller', fn ($q) => $q->approvedSellers())->count(),
+            'products' => Product::customerVisible()->marketplace()->count(),
         ];
 
         if ($request->filled('q')) {
@@ -48,10 +52,17 @@ class StoreController extends Controller
 
     public function show(Request $request, string $slug)
     {
-        $seller = User::approvedSellers()->where('store_slug', $slug)->firstOrFail();
+        $seller = User::approvedSellers()
+            ->where('is_blocked', false)
+            ->where('store_slug', $slug)
+            ->firstOrFail();
         $seller->increment('store_views');
 
-        $products = $seller->products()->active()->with('images')->latest()->paginate(12);
+        $products = $seller->products()
+            ->customerVisible()
+            ->with(['category', 'seller', 'images'])
+            ->latest()
+            ->paginate(12);
         $reviews = $seller->storeReviews()->with('user')->latest()->limit(10)->get();
         $userReview = $request->user()
             ? $seller->storeReviews()->where('user_id', $request->user()->id)->first()
@@ -62,7 +73,10 @@ class StoreController extends Controller
 
     public function storeReview(Request $request, string $slug)
     {
-        $seller = User::approvedSellers()->where('store_slug', $slug)->firstOrFail();
+        $seller = User::approvedSellers()
+            ->where('is_blocked', false)
+            ->where('store_slug', $slug)
+            ->firstOrFail();
 
         $data = $request->validate([
             'rating' => ['required', 'integer', 'min:1', 'max:5'],
@@ -79,7 +93,10 @@ class StoreController extends Controller
 
     public function storeReport(Request $request, string $slug)
     {
-        $seller = User::approvedSellers()->where('store_slug', $slug)->firstOrFail();
+        $seller = User::approvedSellers()
+            ->where('is_blocked', false)
+            ->where('store_slug', $slug)
+            ->firstOrFail();
 
         $data = $request->validate([
             'reason' => ['required', 'string', 'max:120'],
