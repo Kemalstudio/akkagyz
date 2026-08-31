@@ -6,11 +6,14 @@ use App\Http\Controllers\Controller;
 use App\Models\Category;
 use App\Models\Product;
 use App\Models\ProductAttributeValue;
+use App\Support\Concerns\HandlesProductImages;
 use Illuminate\Http\Request;
 use Illuminate\Support\Str;
 
 class ProductController extends Controller
 {
+    use HandlesProductImages;
+
     public function index(Request $request)
     {
         $products = $request->user()->products()->with('category')->latest()->paginate(10);
@@ -37,6 +40,7 @@ class ProductController extends Controller
             'slug' => Str::slug($data['name']).'-'.Str::random(6),
             'status' => 'pending',
         ]);
+        $this->storeProductImages($request, $product);
         $this->syncAttributeValues($product, $attributeValues);
 
         return redirect()->route('seller.products.index')->with('status', "Товар «{$product->name}» отправлен на модерацию.");
@@ -45,7 +49,7 @@ class ProductController extends Controller
     public function edit(Request $request, Product $product)
     {
         abort_unless($product->seller_id === $request->user()->id, 403);
-        $product->load('attributeValues');
+        $product->load('attributeValues', 'images');
         $categories = Category::with('attributes')->orderBy('sort_order')->get();
 
         return view('seller.products.form', compact('categories', 'product'));
@@ -61,6 +65,9 @@ class ProductController extends Controller
         unset($data['attribute_values']);
 
         $product->update($data);
+        if ($request->hasFile('images')) {
+            $this->replaceProductImages($request, $product);
+        }
         $this->syncAttributeValues($product, $attributeValues);
 
         return redirect()->route('seller.products.index')->with('status', 'Товар обновлён.');
@@ -82,7 +89,10 @@ class ProductController extends Controller
             'price' => ['required', 'integer', 'min:0'],
             'compare_price' => ['nullable', 'integer', 'min:0'],
             'stock' => ['required', 'integer', 'min:0'],
+            'condition' => ['required', 'in:new,used'],
             'description' => ['nullable', 'string', 'max:5000'],
+            'images' => ['nullable', 'array', 'max:5'],
+            'images.*' => ['image', 'max:8192'],
             'attribute_values' => ['nullable', 'array'],
             'attribute_values.*' => ['nullable', 'string', 'max:255'],
         ]);
