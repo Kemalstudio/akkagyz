@@ -4,12 +4,20 @@ namespace Database\Seeders;
 
 use App\Models\Category;
 use App\Models\Product;
+use App\Models\ProductImage;
 use App\Models\User;
+use App\Support\DemoPlaceholderImage;
 use Illuminate\Database\Seeder;
+use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
 
 class ProductSeeder extends Seeder
 {
+    /** Demo variety: a few premium (VIP) and a few secondhand (used) listings among the seeded rows. */
+    private const VIP_INDEXES = [4, 7, 11, 21];
+
+    private const USED_INDEXES = [6, 8, 12, 19, 20];
+
     public function run(): void
     {
         $categories = Category::pluck('id', 'slug');
@@ -46,7 +54,7 @@ class ProductSeeder extends Seeder
         ];
 
         foreach ($products as $index => $p) {
-            Product::updateOrCreate(
+            $product = Product::updateOrCreate(
                 ['slug' => Str::slug($p['name']).'-'.($index + 1)],
                 [
                     'seller_id' => $sellers[$p['seller']] ?? null,
@@ -57,15 +65,18 @@ class ProductSeeder extends Seeder
                     'compare_price' => $p['compare'],
                     'stock' => $p['stock'],
                     'status' => 'active',
+                    'condition' => in_array($index, self::USED_INDEXES, true) ? 'used' : 'new',
+                    'is_vip' => in_array($index, self::VIP_INDEXES, true),
                     'rating_avg' => $p['rating'],
                     'rating_count' => $p['ratingCount'],
                     'sales_count' => $p['sales'],
                 ]
             );
+            $this->attachDemoImage($product, $p['cat']);
         }
 
         // A couple of products still pending admin moderation, for the admin demo.
-        Product::updateOrCreate(['slug' => 'termostakan-s-logotipom-pending'], [
+        $pendingA = Product::updateOrCreate(['slug' => 'termostakan-s-logotipom-pending'], [
             'seller_id' => $sellers['EcoCraft Мастерская'] ?? null,
             'category_id' => $categories['upakovka'] ?? null,
             'name' => 'Термостакан с логотипом',
@@ -74,8 +85,9 @@ class ProductSeeder extends Seeder
             'stock' => 50,
             'status' => 'pending',
         ]);
+        $this->attachDemoImage($pendingA, 'upakovka');
 
-        Product::updateOrCreate(['slug' => 'tetrad-na-pruzhine-a5-pending'], [
+        $pendingB = Product::updateOrCreate(['slug' => 'tetrad-na-pruzhine-a5-pending'], [
             'seller_id' => $sellers['NoteCraft KZ'] ?? null,
             'category_id' => $categories['knigi-i-pechat'] ?? null,
             'name' => 'Тетрадь на пружине А5, крафт-обложка',
@@ -83,6 +95,23 @@ class ProductSeeder extends Seeder
             'price' => 2100,
             'stock' => 80,
             'status' => 'pending',
+        ]);
+        $this->attachDemoImage($pendingB, 'knigi-i-pechat');
+    }
+
+    private function attachDemoImage(Product $product, string $categorySlug): void
+    {
+        if ($product->images()->exists()) {
+            return;
+        }
+
+        $path = "products/{$product->slug}.svg";
+        Storage::disk('public')->put($path, DemoPlaceholderImage::svgFor($categorySlug));
+
+        ProductImage::create([
+            'product_id' => $product->id,
+            'path' => $path,
+            'sort_order' => 0,
         ]);
     }
 }
