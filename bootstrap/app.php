@@ -16,7 +16,7 @@ return Application::configure(basePath: dirname(__DIR__))
         $schedule->command('orders:cancel-stale')->hourly();
     })
     ->withMiddleware(function (Middleware $middleware): void {
-        $middleware->web(append: [\App\Http\Middleware\SetLocale::class,\App\Http\Middleware\DevelopmentMode::class,\App\Http\Middleware\TranslateInterface::class]);
+        $middleware->web(append: [\App\Http\Middleware\SetLocale::class,\App\Http\Middleware\DevelopmentMode::class,\App\Http\Middleware\TranslateInterface::class,\App\Http\Middleware\EnsureUserNotBlocked::class]);
         $middleware->alias([
             'role' => \App\Http\Middleware\EnsureUserHasRole::class,
             'mobile.auth' => \App\Http\Middleware\AuthenticateMobileToken::class,
