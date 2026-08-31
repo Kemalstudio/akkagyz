@@ -15,13 +15,13 @@
         <path d="M20.3 5.7a5.3 5.3 0 0 0-7.5 0L12 6.5l-.8-.8a5.3 5.3 0 0 0-7.5 7.5L12 21l8.3-7.8a5.3 5.3 0 0 0 0-7.5Z"/><path d="M17.5 7.5a2.7 2.7 0 0 1 .7 2.7" opacity=".55"/>
         @break
     @case('heart-fill')
-        </svg><svg width="{{ $s }}" height="{{ $s }}" viewBox="0 0 24 24" fill="currentColor" {{ $attributes }}><path d="M20.8 4.6a5.5 5.5 0 0 0-7.8 0L12 5.6l-1-1a5.5 5.5 0 0 0-7.8 7.8l1 1L12 21l7.8-7.8 1-1a5.5 5.5 0 0 0 0-7.6z"/>
+        <path d="M20.8 4.6a5.5 5.5 0 0 0-7.8 0L12 5.6l-1-1a5.5 5.5 0 0 0-7.8 7.8l1 1L12 21l7.8-7.8 1-1a5.5 5.5 0 0 0 0-7.6z" fill="currentColor" stroke="none"/>
         @break
     @case('user')
         <path d="M20 21a8 8 0 0 0-16 0"/><circle cx="12" cy="7" r="4"/>
         @break
     @case('star')
-        </svg><svg width="{{ $s }}" height="{{ $s }}" viewBox="0 0 24 24" fill="currentColor" {{ $attributes }}><path d="M12 2l3.1 6.3 7 1-5 4.9 1.2 6.9L12 17.8 5.7 21.1l1.2-6.9-5-4.9 7-1z"/>
+        <path d="M12 2l3.1 6.3 7 1-5 4.9 1.2 6.9L12 17.8 5.7 21.1l1.2-6.9-5-4.9 7-1z" fill="currentColor" stroke="none"/>
         @break
     @case('star-outline')
         <path d="M12 2l3.1 6.3 7 1-5 4.9 1.2 6.9L12 17.8 5.7 21.1l1.2-6.9-5-4.9 7-1z"/>
@@ -98,8 +98,20 @@
     @case('money')
         <path d="M12 2v20M17 6.5c0-2-2-3-5-3s-5 1.2-5 3 2 2.6 5 3 5 1 5 3-2 3-5 3-5-1-5-3"/>
         @break
+    @case('cash')
+        <rect x="2" y="6" width="20" height="12" rx="2.5"/><circle cx="12" cy="12" r="3"/><path d="M6 9v.01M18 15v.01"/>
+        @break
     @case('trending-up')
         <path d="M3 17 9 11l4 4 8-8"/><path d="M15 7h6v6"/>
+        @break
+    @case('chart')
+        <path d="M3 3v18h18"/><path d="M18 17V9"/><path d="M13 17V5"/><path d="M8 17v-3"/>
+        @break
+    @case('credit-card')
+        <rect x="2" y="5" width="20" height="14" rx="2.5"/><path d="M2 10h20"/>
+        @break
+    @case('wallet')
+        <path d="M21 12V7H5a2 2 0 0 1 0-4h14v4"/><path d="M3 5v14a2 2 0 0 0 2 2h16v-5"/><path d="M18 12a2 2 0 0 0 0 4h4v-4Z"/>
         @break
     @case('users')
         <path d="M16 21a4 4 0 0 0-8 0"/><circle cx="12" cy="11" r="4"/><path d="M22 21a4 4 0 0 0-3-3.9M17.5 3.5a4 4 0 0 1 0 7.7"/>
@@ -229,6 +241,9 @@
         @break
     @case('printer')
         <path d="M6 9V3h12v6"/><rect x="3" y="9" width="18" height="8" rx="1.5"/><path d="M6 14h12v7H6Z"/>
+        @break
+    @case('copy')
+        <rect x="8" y="8" width="12" height="12" rx="2"/><path d="M16 8V6a2 2 0 0 0-2-2H6a2 2 0 0 0-2 2v8a2 2 0 0 0 2 2h2"/>
         @break
     @case('calendar')
         <rect x="3" y="4.5" width="18" height="16.5" rx="2"/><path d="M3 9.5h18"/><path d="M8 2.5v4M16 2.5v4"/><circle cx="8" cy="14" r="1"/><circle cx="12" cy="14" r="1"/><circle cx="16" cy="14" r="1"/>
