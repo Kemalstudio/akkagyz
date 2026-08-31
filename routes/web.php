@@ -50,6 +50,24 @@ Route::get('/track-order', [OrderController::class, 'track'])->name('orders.trac
 Route::post('/track-order', [OrderController::class, 'lookup'])
     ->middleware('throttle:10,1')
     ->name('orders.lookup');
+Route::get('/orders/{order}/guest/{token}', [OrderController::class, 'showGuest'])->name('orders.show.guest');
+
+// Cart and checkout work without an account so anyone can order; wishlist,
+// compare, and "my orders" stay behind the auth group below.
+Route::get('/cart', [CartController::class, 'index'])->name('cart.index');
+Route::post('/cart/{product}', [CartController::class, 'add'])->name('cart.add');
+Route::patch('/cart/item/{cartItem}', [CartController::class, 'update'])->name('cart.update');
+Route::delete('/cart/item/{cartItem}', [CartController::class, 'destroy'])->name('cart.destroy');
+Route::delete('/cart', [CartController::class, 'clear'])->name('cart.clear');
+
+Route::get('/checkout', [CheckoutController::class, 'index'])->name('checkout.index');
+Route::post('/checkout', [CheckoutController::class, 'store'])->middleware('throttle:10,1')->name('checkout.store');
+Route::post('/checkout/promo', [CheckoutController::class, 'previewPromo'])
+    ->middleware(['auth', 'throttle:20,1'])
+    ->name('checkout.promo');
+Route::post('/checkout/express', [CheckoutController::class, 'expressStore'])
+    ->middleware(['auth', 'throttle:10,1'])
+    ->name('checkout.express');
 
 Route::prefix('marketplace')->name('marketplace.')->group(function () {
     Route::get('/', [MarketplaceHomeController::class, 'index'])->name('home');
@@ -68,11 +86,6 @@ Route::middleware('auth')->group(function () {
     Route::post('/reviews/{review}/replies', [ReviewReplyController::class, 'store'])->name('reviews.replies.store');
     Route::delete('/review-replies/{reply}', [ReviewReplyController::class, 'destroy'])->name('reviews.replies.destroy');
 
-    Route::get('/cart', [CartController::class, 'index'])->name('cart.index');
-    Route::post('/cart/{product}', [CartController::class, 'add'])->name('cart.add');
-    Route::patch('/cart/item/{cartItem}', [CartController::class, 'update'])->name('cart.update');
-    Route::delete('/cart/item/{cartItem}', [CartController::class, 'destroy'])->name('cart.destroy');
-
     Route::get('/wishlist', [WishlistController::class, 'index'])->name('wishlist.index');
     Route::post('/wishlist/{product}', [WishlistController::class, 'toggle'])->name('wishlist.toggle');
     Route::delete('/wishlist', [WishlistController::class, 'clear'])->name('wishlist.clear');
@@ -80,9 +93,6 @@ Route::middleware('auth')->group(function () {
     Route::get('/compare', [CompareController::class, 'index'])->name('compare.index');
     Route::post('/compare/{product}', [CompareController::class, 'toggle'])->name('compare.toggle');
     Route::delete('/compare', [CompareController::class, 'clear'])->name('compare.clear');
-
-    Route::get('/checkout', [CheckoutController::class, 'index'])->name('checkout.index');
-    Route::post('/checkout', [CheckoutController::class, 'store'])->middleware('throttle:10,1')->name('checkout.store');
 
     Route::get('/orders', [OrderController::class, 'index'])->name('orders.index');
     Route::get('/orders/{order}', [OrderController::class, 'show'])->name('orders.show');
@@ -146,6 +156,9 @@ Route::middleware(['auth', 'role:admin', 'admin.permission', 'admin.audit'])->pr
     Route::delete('/inventory/{product}/variants/{variant}', [AdminInventoryController::class, 'destroyVariant'])->name('inventory.variants.destroy');
     Route::patch('/returns/{return}', [AdminReturnSupportController::class, 'resolveReturn'])->name('returns.resolve');
     Route::get('/support', [AdminReturnSupportController::class, 'tickets'])->name('support.index');
+    Route::get('/support/{ticket}', [AdminReturnSupportController::class, 'showTicket'])->name('support.show');
+    Route::post('/support/{ticket}/reply', [AdminReturnSupportController::class, 'replyTicket'])->name('support.reply');
+    Route::patch('/support/{ticket}', [AdminReturnSupportController::class, 'updateTicket'])->name('support.update');
     Route::get('/payments', [AdminFinanceController::class, 'payments'])->name('payments.index');
     Route::get('/payouts', [AdminFinanceController::class, 'payouts'])->name('payouts.index');
     Route::post('/payouts', [AdminFinanceController::class, 'storePayout'])->name('payouts.store');
