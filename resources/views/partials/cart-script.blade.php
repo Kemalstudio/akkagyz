@@ -32,7 +32,8 @@
         data.set('action', action);
         try {
             const response = await fetch(form.action, {method:'POST',body:data,headers:{'Accept':'application/json','X-Requested-With':'XMLHttpRequest'},credentials:'same-origin'});
-            if (response.status === 401 || response.status === 419) { window.location.href='{{ route('login') }}'; return; }
+            if (response.status === 401) { window.location.href='{{ route('login') }}'; return; }
+            if (response.status === 419) { window.location.reload(); return; }
             const payload = await response.json();
             if (!response.ok) throw new Error(payload.message || 'Не удалось обновить корзину');
             document.querySelectorAll(`.cart-ajax-form[data-product-id="${form.dataset.productId}"]`).forEach(item => renderState(item, payload.quantity));
@@ -48,5 +49,34 @@
             toast.textContent=error.message;toast.classList.add('show');setTimeout(()=>toast.classList.remove('show'),2200);
         } finally { form.classList.remove('is-busy'); }
     });
+
+    const expressBtn = document.getElementById('cart-express-btn');
+    if (expressBtn) {
+        expressBtn.addEventListener('click', async () => {
+            if (expressBtn.disabled) return;
+            if (!confirm('Оформить быстрый заказ по адресу из последнего заказа? К сумме добавится 30 TMT за срочность.')) return;
+            expressBtn.disabled = true;
+            try {
+                const response = await fetch(expressBtn.dataset.expressUrl, {
+                    method: 'POST',
+                    headers: {
+                        'Accept': 'application/json',
+                        'X-Requested-With': 'XMLHttpRequest',
+                        'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]')?.content || ''
+                    },
+                    credentials: 'same-origin'
+                });
+                if (response.status === 419) { window.location.reload(); return; }
+                const payload = await response.json();
+                if (!response.ok) throw new Error(payload.message || 'Не удалось оформить быстрый заказ');
+                window.location.href = payload.redirect;
+            } catch (error) {
+                let toast = document.querySelector('.wishlist-toast');
+                if (!toast) { toast = document.createElement('div'); toast.className = 'wishlist-toast'; document.body.appendChild(toast); }
+                toast.textContent = error.message; toast.classList.add('show'); setTimeout(() => toast.classList.remove('show'), 2600);
+                expressBtn.disabled = false;
+            }
+        });
+    }
 })();
 </script>
