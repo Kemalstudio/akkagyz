@@ -10,7 +10,7 @@ class Banner extends Model
 {
     use HasFactory;
 
-    protected $fillable = ['title', 'subtitle', 'button_text', 'image_path', 'link_url', 'sort_order', 'is_active', 'show_overlay'];
+    protected $fillable = ['title', 'subtitle', 'button_text', 'image_path', 'link_url', 'sort_order', 'is_active', 'show_overlay', 'placement'];
 
     protected function casts(): array
     {
@@ -20,6 +20,16 @@ class Banner extends Model
     public function scopeActive($query)
     {
         return $query->where('is_active', true);
+    }
+
+    public function scopeForMain($query)
+    {
+        return $query->whereIn('placement', ['main', 'both']);
+    }
+
+    public function scopeForMarketplace($query)
+    {
+        return $query->whereIn('placement', ['marketplace', 'both']);
     }
 
     public function getImageUrlAttribute(): string
