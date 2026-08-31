@@ -8,7 +8,7 @@
         {{ Str::of($seller->store_name)->substr(0, 2)->upper() }}
     </div>
     <div style="font-size:17px;font-weight:700;color:var(--text);letter-spacing:-.01em">{{ $seller->store_name }}</div>
-    <div style="font-size:13px;color:var(--text-faint);margin-top:4px;min-height:36px;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;">{{ $seller->store_description ?: 'Продавец на AK KAGYZ' }}</div>
+    <div style="font-size:13px;color:var(--text-faint);margin-top:4px;min-height:36px;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;">{{ $seller->store_description ?: 'Продавец на '.$businessSettings->site_name }}</div>
     <div style="display:flex;align-items:center;gap:14px;margin-top:14px;padding-top:14px;border-top:1px solid var(--border);flex-wrap:wrap;">
         <span style="display:flex;align-items:center;gap:5px;font-size:12.5px;color:var(--text-muted);font-weight:700;"><x-icon name="package" :size="13" />{{ $seller->products_count }} товаров</span>
         @if($seller->store_rating)
