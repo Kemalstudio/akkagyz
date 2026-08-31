@@ -35,7 +35,7 @@
         .skip-link:focus{transform:translateY(0)}
         @media(max-width:1180px){.header-stores-btn,.header-sell-link{display:none}.mp-search{max-width:none}}
         @media(max-width:780px){.mp-header-inner{flex-wrap:wrap;padding:11px 16px}.mp-search{order:5;flex:1 0 100%;max-width:none}.mp-actions{margin-left:auto}.mp-actions>div[style*="width:1px"]{display:none}.mp-footer-grid{grid-template-columns:repeat(2,1fr);padding:38px 18px 26px}.mp-footer-bottom{padding:16px 18px}}
-        @media(max-width:560px){.mp-badge{display:none}.mp-actions>.icon-btn[title="Сравнение"]{display:none}.mp-actions>div[style*="position:relative"] button span{display:none}.mp-actions>div[style*="position:relative"] button{padding-right:6px}.mp-footer-grid{grid-template-columns:1fr}.mp-footer-bottom{display:block}.mp-back-link{font-size:11px}}
+        @media(max-width:560px){.mp-badge{display:none}.mp-actions>div[style*="position:relative"] button span{display:none}.mp-actions>div[style*="position:relative"] button{padding-right:6px}.mp-footer-grid{grid-template-columns:1fr}.mp-footer-bottom{display:block}.mp-back-link{font-size:11px}}
         @media(max-width:760px){.mp-actions>a[title="Избранное"],.mp-actions>a[title="Корзина"]{display:none}}
     </style>
 </head>
