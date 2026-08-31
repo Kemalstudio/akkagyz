@@ -12,15 +12,15 @@ class ProductController extends Controller
 {
     public function index(Request $request, ProductAttributeFilterService $attributeFilters)
     {
-        $query = Product::query()->active()->marketplace()->with(['category', 'seller', 'images']);
+        $query = Product::query()->customerVisible()->marketplace()->with(['category', 'seller', 'images']);
 
         if ($request->filled('q')) {
-            $query->where('name', 'like', '%'.$request->string('q').'%');
+            $query->search($request->string('q'));
         }
 
         $category = null;
         if ($request->filled('category')) {
-            $category = Category::with(['children','parent.children'])->where('slug', $request->string('category'))->first();
+            $category = Category::with(['children', 'parent.children'])->where('slug', $request->string('category'))->first();
             if ($category) {
                 $query->whereIn('category_id', $category->idsWithChildren());
             }
@@ -38,8 +38,12 @@ class ProductController extends Controller
         if ($request->boolean('in_stock')) {
             $query->where('stock', '>', 0);
         }
-        if ($request->boolean('on_sale')) $query->whereNotNull('compare_price')->whereColumn('compare_price', '>', 'price');
-        if ($request->boolean('vip')) $query->where('is_vip', true);
+        if ($request->boolean('on_sale')) {
+            $query->whereNotNull('compare_price')->whereColumn('compare_price', '>', 'price');
+        }
+        if ($request->boolean('vip')) {
+            $query->where('is_vip', true);
+        }
 
         $categoryAttributes = $attributeFilters->attributesFor($category);
         $attributeFacets = $attributeFilters->facets($query, $categoryAttributes);
@@ -52,7 +56,9 @@ class ProductController extends Controller
             'rating' => $query->orderByDesc('rating_avg'),
             'name_asc' => $query->orderBy('name'),
             'name_desc' => $query->orderByDesc('name'),
-            default => $query->orderByDesc('is_vip')->orderByDesc('sales_count'),
+            default => $request->filled('q')
+                ? $query->orderByRelevance($request->string('q'))->orderByDesc('is_vip')->orderByDesc('sales_count')
+                : $query->orderByDesc('is_vip')->orderByDesc('sales_count'),
         };
 
         $perPage = in_array((int) $request->input('per_page'), [30, 50, 100, 200, 300], true)
@@ -60,6 +66,13 @@ class ProductController extends Controller
             : 30;
 
         $products = $query->paginate($perPage)->withQueryString();
+
+        if ($request->boolean('partial')) {
+            return response()->json([
+                'html' => view('storefront.partials.product-cards', ['products' => $products])->render(),
+                'nextPageUrl' => $products->nextPageUrl(),
+            ]);
+        }
 
         return view('marketplace.catalog', [
             'products' => $products,
@@ -81,9 +94,10 @@ class ProductController extends Controller
             return response()->json(['products' => [], 'categories' => []]);
         }
 
-        $products = Product::active()
+        $products = Product::customerVisible()
             ->marketplace()
-            ->where('name', 'like', "%{$q}%")
+            ->search($q)
+            ->orderByRelevance($q)
             ->orderByDesc('sales_count')
             ->limit(5)
             ->get(['name', 'slug', 'price']);
@@ -95,15 +109,18 @@ class ProductController extends Controller
 
     public function show(string $slug)
     {
-        $product = Product::where('slug', $slug)->marketplace()->with(['category', 'seller', 'images', 'attributeValues.attribute'])
+        $product = Product::customerVisible()
+            ->where('slug', $slug)
+            ->marketplace()
+            ->with(['category', 'seller', 'images', 'attributeValues.attribute'])
             ->withCount('reviews')
             ->firstOrFail();
 
         $reviews = $product->reviews()->published()->with(['user', 'replies.user'])->latest()->limit(20)->get();
 
-        $related = Product::active()
+        $related = Product::customerVisible()
             ->marketplace()
-            ->with('images')
+            ->with(['category', 'seller', 'images'])
             ->where('category_id', $product->category_id)
             ->where('id', '!=', $product->id)
             ->limit(4)
@@ -114,12 +131,12 @@ class ProductController extends Controller
 
     private function filterContext(?string $slug): array
     {
-        return match($slug) {
-            'elektronika' => ['title'=>'Параметры электроники','hint'=>'Цена, рейтинг и наличие','quick'=>[['До 5 000',0,5000],['5 000–15 000',5000,15000],['От 15 000',15000,null]]],
-            'ofis-i-biznes' => ['title'=>'Для офиса и бизнеса','hint'=>'Подберите оснащение по бюджету','quick'=>[['До 2 500',0,2500],['2 500–7 500',2500,7500],['Премиум',7500,null]]],
-            'kancelyariya' => ['title'=>'Канцелярские товары','hint'=>'Фильтры по стоимости и наличию','quick'=>[['До 2 000',0,2000],['2 000–5 000',2000,5000],['От 5 000',5000,null]]],
-            'tvorchestvo' => ['title'=>'Товары для творчества','hint'=>'Найдите материалы под свой проект','quick'=>[['До 3 000',0,3000],['3 000–7 000',3000,7000],['Профессиональные',7000,null]]],
-            default => ['title'=>'Умные фильтры','hint'=>'Цена, рейтинг и наличие','quick'=>[['До 3 000',0,3000],['3 000–10 000',3000,10000],['От 10 000',10000,null]]],
+        return match ($slug) {
+            'elektronika' => ['title' => 'Параметры электроники', 'hint' => 'Цена, рейтинг и наличие', 'quick' => [['До 5 000', 0, 5000], ['5 000–15 000', 5000, 15000], ['От 15 000', 15000, null]]],
+            'ofis-i-biznes' => ['title' => 'Для офиса и бизнеса', 'hint' => 'Подберите оснащение по бюджету', 'quick' => [['До 2 500', 0, 2500], ['2 500–7 500', 2500, 7500], ['Премиум', 7500, null]]],
+            'kancelyariya' => ['title' => 'Канцелярские товары', 'hint' => 'Фильтры по стоимости и наличию', 'quick' => [['До 2 000', 0, 2000], ['2 000–5 000', 2000, 5000], ['От 5 000', 5000, null]]],
+            'tvorchestvo' => ['title' => 'Товары для творчества', 'hint' => 'Найдите материалы под свой проект', 'quick' => [['До 3 000', 0, 3000], ['3 000–7 000', 3000, 7000], ['Профессиональные', 7000, null]]],
+            default => ['title' => 'Умные фильтры', 'hint' => 'Цена, рейтинг и наличие', 'quick' => [['До 3 000', 0, 3000], ['3 000–10 000', 3000, 10000], ['От 10 000', 10000, null]]],
         };
     }
 }
