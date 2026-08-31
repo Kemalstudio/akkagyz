@@ -80,3 +80,54 @@ it('does not allow reviving a cancelled order', function () {
 
     expect($order->fresh()->status)->toBe('cancelled');
 });
+
+it('renders the admin order workspace with status menus and operational filters', function () {
+    $admin = User::factory()->create(['role' => 'admin']);
+    $buyer = User::factory()->create(['name' => 'Мердан Аманов']);
+    Order::factory()->for($buyer)->create([
+        'number' => 'AK-WORKSPACE',
+        'status' => 'processing',
+        'payment_status' => 'paid',
+        'total' => 245,
+    ]);
+
+    $this->actingAs($admin)
+        ->get(route('admin.orders'))
+        ->assertOk()
+        ->assertSee('Центр обработки заказов')
+        ->assertSee('Расширенный фильтр')
+        ->assertSee('AK-WORKSPACE')
+        ->assertSee('data-status-picker', false)
+        ->assertSee('name="payment_status"', false)
+        ->assertSee('name="delivery_method"', false);
+});
+
+it('filters admin orders by customer, status, payment and delivery method', function () {
+    $admin = User::factory()->create(['role' => 'admin']);
+    $matchingBuyer = User::factory()->create(['name' => 'Мердан Аманов']);
+    $otherBuyer = User::factory()->create(['name' => 'Другой покупатель']);
+
+    Order::factory()->for($matchingBuyer)->create([
+        'number' => 'AK-MATCHING',
+        'status' => 'processing',
+        'payment_status' => 'paid',
+        'delivery_method' => 'courier',
+    ]);
+    Order::factory()->for($otherBuyer)->create([
+        'number' => 'AK-HIDDEN',
+        'status' => 'pending',
+        'payment_status' => 'unpaid',
+        'delivery_method' => 'pickup',
+    ]);
+
+    $this->actingAs($admin)
+        ->get(route('admin.orders', [
+            'search' => 'Мердан',
+            'status' => 'processing',
+            'payment_status' => 'paid',
+            'delivery_method' => 'courier',
+        ]))
+        ->assertOk()
+        ->assertSee('AK-MATCHING')
+        ->assertDontSee('AK-HIDDEN');
+});
