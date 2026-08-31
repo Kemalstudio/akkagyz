@@ -3,7 +3,7 @@
     $statusColors = ['draft' => 'text-faint', 'pending' => 'warning', 'active' => 'success', 'rejected' => 'danger'];
 @endphp
 <x-dashboard-layout title="Товары" active="products">
-    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:24px;">
+    <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:12px;margin-bottom:24px;">
         <div style="font-size:24px;font-weight:900;">Мои товары</div>
         <a href="{{ route('seller.products.create') }}" class="btn-accent"><x-icon name="plus" :size="15" />Добавить товар</a>
     </div>
@@ -12,7 +12,7 @@
         @if($products->isEmpty())
             <div style="color:var(--text-faint);font-size:14px;text-align:center;padding:40px 0;">У вас пока нет товаров.</div>
         @else
-        <table style="width:100%;border-collapse:collapse;">
+        <div class="admin-table-wrap"><table class="admin-table">
             <thead><tr><th>Товар</th><th>Цена</th><th>Остаток</th><th>Продано</th><th>Статус</th><th></th></tr></thead>
             <tbody>
                 @foreach($products as $product)
@@ -32,7 +32,7 @@
                 </tr>
                 @endforeach
             </tbody>
-        </table>
+        </table></div>
         <div style="margin-top:20px;">{{ $products->links() }}</div>
         @endif
     </div>
