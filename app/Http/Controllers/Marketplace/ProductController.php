@@ -44,6 +44,9 @@ class ProductController extends Controller
         if ($request->boolean('vip')) {
             $query->where('is_vip', true);
         }
+        if (in_array($request->string('condition')->value(), ['new', 'used'], true)) {
+            $query->where('condition', $request->string('condition'));
+        }
 
         $categoryAttributes = $attributeFilters->attributesFor($category);
         $attributeFacets = $attributeFilters->facets($query, $categoryAttributes);
