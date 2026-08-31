@@ -56,7 +56,7 @@
         .seller-cta-action{position:relative;z-index:1;display:inline-flex;min-height:44px;flex-shrink:0;align-items:center;justify-content:center;gap:8px;padding:0 17px;border-radius:11px;background:#fff;color:#173573;font-size:12px;font-weight:900;box-shadow:0 10px 24px rgba(0,0,0,.16)}
         .seller-cta-action:hover{color:#173573;transform:translateY(-1px)}
         @media(max-width:900px){.market-product-grid{grid-template-columns:repeat(2,minmax(0,1fr))}.market-selling{padding:30px 24px}}
-        @media(max-width:760px){.market-hero{aspect-ratio:{{ $mobileHeroRatio }};height:auto;min-height:0;border-radius:16px}.market-hero-slide--flat{background-size:contain}.market-hero-content{padding:22px;min-height:0}.market-hero-title{font-size:22px}.market-hero-copy{font-size:12.5px}.market-hero-dots{left:22px}.market-section{padding:32px 16px 3px}.market-section-head,.market-selling-head{align-items:flex-start;flex-direction:column}.market-selling{margin:34px 16px 0;padding:24px 18px}.seller-flow{grid-template-columns:1fr}.seller-flow:before{display:none}.seller-cta{align-items:flex-start;flex-wrap:wrap;padding:22px 20px}.seller-cta-action{width:100%}}
+        @media(max-width:760px){.market-hero{aspect-ratio:var(--mobile-hero-ratio, 2.4);height:auto;min-height:0;border-radius:16px}.market-hero-slide--flat{background-size:contain}.market-hero-content{padding:22px;min-height:0}.market-hero-title{font-size:22px}.market-hero-copy{font-size:12.5px}.market-hero-dots{left:22px}.market-section{padding:32px 16px 3px}.market-section-head,.market-selling-head{align-items:flex-start;flex-direction:column}.market-selling{margin:34px 16px 0;padding:24px 18px}.seller-flow{grid-template-columns:1fr}.seller-flow:before{display:none}.seller-cta{align-items:flex-start;flex-wrap:wrap;padding:22px 20px}.seller-cta-action{width:100%}}
         @media(max-width:520px){.market-product-grid{grid-template-columns:1fr}.seller-cta-icon{display:none}}
         @media(prefers-reduced-motion:reduce){.market-hero-action,.market-section-link,.seller-cta-action{transition:none}}
     </style>
@@ -81,7 +81,7 @@
 
         @if($heroSlideCount > 0)
             <div class="market-hero-wrap">
-                <section class="market-hero" aria-label="Промо">
+                <section class="market-hero" aria-label="Промо" style="--mobile-hero-ratio:{{ $mobileHeroRatio }}">
                     @foreach($banners as $banner)
                         @php
                             $slideBg = $banner->show_overlay
