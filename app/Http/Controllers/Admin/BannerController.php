@@ -24,6 +24,7 @@ class BannerController extends Controller
     public function store(Request $request)
     {
         $data = $this->validated($request, true);
+        $data['show_overlay'] = $request->boolean('show_overlay');
 
         $data['image_path'] = $request->file('image')->store('banners', 'public');
         $data['sort_order'] = Banner::max('sort_order') + 1;
@@ -41,6 +42,7 @@ class BannerController extends Controller
     public function update(Request $request, Banner $banner)
     {
         $data = $this->validated($request, false);
+        $data['show_overlay'] = $request->boolean('show_overlay');
 
         if ($request->hasFile('image')) {
             Storage::disk('public')->delete($banner->image_path);
@@ -80,12 +82,17 @@ class BannerController extends Controller
 
     private function validated(Request $request, bool $imageRequired): array
     {
-        return $request->validate([
-            'title' => ['required', 'string', 'max:255'],
+        $data = $request->validate([
+            'title' => [$request->boolean('show_overlay') ? 'required' : 'nullable', 'string', 'max:255'],
             'subtitle' => ['nullable', 'string', 'max:500'],
             'button_text' => ['nullable', 'string', 'max:60'],
             'link_url' => ['nullable', 'string', 'max:255'],
             'image' => [$imageRequired ? 'required' : 'nullable', 'image', 'max:8192'],
+            'placement' => ['required', 'in:main,marketplace,both'],
         ]);
+
+        $data['title'] ??= '';
+
+        return $data;
     }
 }
