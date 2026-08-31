@@ -36,4 +36,13 @@ class Banner extends Model
     {
         return Storage::disk('public')->url($this->image_path);
     }
+
+    /** Real width/height ratio of the uploaded image, used to size the mobile hero box so it never letterboxes. Falls back to a typical wide-banner ratio if the file can't be read. */
+    public function getImageAspectRatioAttribute(): float
+    {
+        $path = Storage::disk('public')->path($this->image_path);
+        $size = is_file($path) ? @getimagesize($path) : false;
+
+        return $size && $size[1] > 0 ? $size[0] / $size[1] : 2.4;
+    }
 }
