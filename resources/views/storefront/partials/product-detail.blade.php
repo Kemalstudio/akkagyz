@@ -1,11 +1,12 @@
 @php
     $routeName = $routeName ?? 'catalog';
     $homeRouteName = $homeRouteName ?? 'home';
-    $inWishlist = auth()->check() && auth()->user()->wishlistItems()->where('product_id', $product->id)->exists();
-    $inCompare = auth()->check() && auth()->user()->compareItems()->where('product_id', $product->id)->exists();
+    $shoppingState = app(\App\Support\ShoppingState::class);
+    $inWishlist = $shoppingState->inWishlist($product->id);
+    $inCompare = $shoppingState->inCompare($product->id);
     $userReview = auth()->check() ? $product->reviews()->where('user_id', auth()->id())->first() : null;
     $mainImage = $product->images->first();
-    $cartQuantity = auth()->check() ? (int) (auth()->user()->cartItems()->where('product_id', $product->id)->value('quantity') ?? 0) : 0;
+    $cartQuantity = $shoppingState->cartQuantity($product->id);
 @endphp
 <style>
 .reviews-section{padding:54px 24px 18px}.reviews-heading{display:flex;align-items:end;justify-content:space-between;gap:18px;margin-bottom:20px}.reviews-kicker{font-size:10px;text-transform:uppercase;letter-spacing:.1em;color:var(--accent);font-weight:700}.reviews-heading h2{font-size:25px;font-weight:700;letter-spacing:-.025em;margin:5px 0 0}.reviews-heading h2 span{color:var(--text-faint);font-weight:500}.reviews-top-rating{display:flex;align-items:center;gap:6px;padding:8px 11px;border-radius:10px;background:var(--warning-soft);color:var(--warning);font-size:14px;font-weight:700}.reviews-top-rating small{font-weight:500;color:var(--text-faint)}.reviews-overview{display:grid;grid-template-columns:250px minmax(0,650px);gap:16px;align-items:stretch}.rating-summary,.review-editor,.review-login-card{border:1px solid var(--border);border-radius:18px;background:var(--surface)}.rating-summary{padding:23px;text-align:center}.rating-big{font-size:43px;font-weight:700;letter-spacing:-.05em;margin-bottom:5px}.rating-summary-copy{font-size:11px;color:var(--text-faint);margin-top:9px}.verified-note{display:flex;align-items:center;text-align:left;gap:7px;margin-top:18px;padding-top:15px;border-top:1px solid var(--border);font-size:10px;line-height:1.4;color:var(--text-faint)}.verified-note svg{color:var(--success);flex-shrink:0}.review-editor{padding:20px}.review-editor-head{display:flex;align-items:center;justify-content:space-between;gap:14px}.review-editor-head strong,.review-login-card strong{display:block;font-size:15px}.review-editor-head>div>span{display:block;font-size:10px;color:var(--text-faint);margin-top:3px}.review-user-avatar,.review-avatar{display:grid;place-items:center;overflow:hidden;background:var(--accent-soft);color:var(--accent);font-size:11px;font-weight:700;flex-shrink:0}.review-user-avatar{width:38px;height:38px;border-radius:11px}.review-user-avatar img,.review-avatar img{width:100%;height:100%;object-fit:cover}.rating-question{font-size:10px;color:var(--text-faint);margin-top:14px}.rating-picker{display:flex;flex-direction:row-reverse;justify-content:flex-end;gap:4px;margin:5px 0 12px}.rating-picker input{position:absolute;opacity:0}.rating-picker label{color:var(--border-strong);cursor:pointer;display:flex;transition:.15s}.rating-picker label:hover,.rating-picker label:hover~label,.rating-picker input:checked~label{color:var(--warning);transform:translateY(-1px)}.review-editor>textarea{width:100%;min-height:90px;padding:12px 13px;border:1px solid var(--border);border-radius:11px;background:var(--bg);color:var(--text);font:inherit;font-size:12px;line-height:1.55;resize:vertical;outline:none}.review-editor>textarea:focus{border-color:var(--accent);box-shadow:0 0 0 3px var(--accent-soft)}.review-editor-footer{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-top:10px}.review-editor-footer>span{font-size:9px;color:var(--text-faint)}.review-login-card{padding:23px;display:grid;grid-template-columns:47px 1fr auto;align-items:center;gap:14px}.review-login-icon{width:47px;height:47px;border-radius:13px;background:var(--accent-soft);color:var(--accent);display:grid;place-items:center}.review-login-card p{font-size:11px;line-height:1.5;color:var(--text-faint);margin:5px 0 0}.review-list-head{display:flex;align-items:center;justify-content:space-between;margin:34px 0 13px;max-width:916px}.review-list-head>div strong{font-size:16px}.review-list-head>div span{font-size:10px;color:var(--text-faint);margin-left:8px}.reviews-list{max-width:916px;display:grid;gap:11px}.review-item{display:flex;gap:13px;padding:18px;border:1px solid var(--border);border-radius:16px;background:var(--surface);transition:.18s}.review-item:hover{border-color:var(--border-strong);box-shadow:0 8px 20px rgba(0,0,0,.05)}.review-avatar{width:42px;height:42px;border-radius:12px}.review-item-body{min-width:0;flex:1}.review-meta{display:flex;align-items:center;gap:8px;flex-wrap:wrap}.review-meta strong{font-size:13px}.review-meta time{margin-left:auto;font-size:10px;color:var(--text-faint)}.verified-buyer{display:flex;align-items:center;gap:3px;padding:3px 5px;border-radius:6px;background:var(--success-soft);color:var(--success);font-size:8px;font-weight:700}.review-stars{display:flex;align-items:center;gap:7px;margin-top:5px}.review-stars b{font-size:10px;color:var(--text-faint)}.review-item-body>p{font-size:13px;color:var(--text-muted);line-height:1.65;margin:10px 0 0}.review-no-copy{font-size:11px;color:var(--text-faint);margin-top:9px;font-style:italic}.reviews-empty{text-align:center;padding:42px 22px;border:1px dashed var(--border);border-radius:17px;background:var(--surface)}.reviews-empty>span{width:52px;height:52px;border-radius:15px;margin:0 auto 12px;background:var(--warning-soft);color:var(--warning);display:grid;place-items:center}.reviews-empty strong{display:block;font-size:15px}.reviews-empty p{font-size:11px;color:var(--text-faint);margin:5px 0 0}@media(max-width:760px){.reviews-overview{grid-template-columns:1fr}.review-login-card{grid-template-columns:47px 1fr}.review-login-card .btn-accent{grid-column:1/-1}.review-meta time{margin-left:0}}@media(max-width:480px){.reviews-section{padding-left:14px;padding-right:14px}.review-item{padding:14px}.review-editor-footer{align-items:flex-end}.review-editor-footer .btn-accent{font-size:11px;padding:0 12px}}
@@ -22,12 +23,15 @@
     <div style="display:flex;flex-direction:column;gap:12px;position:relative;">
         <div id="product-main-image" class="product-gallery-main">
             @if($mainImage)<img id="gallery-main-img" src="{{ $mainImage->url }}" alt="{{ $product->name }}">@else<x-icon name="image" :size="90" />@endif
-            <div style="position:absolute;top:16px;left:16px;display:flex;flex-direction:column;gap:6px;">
+            <div class="product-ribbons" style="top:16px;">
                 @if($product->is_vip)
-                    <span class="badge" style="background:linear-gradient(100deg, oklch(0.78 0.16 85), oklch(0.68 0.17 60));color:#2a1a00;"><x-icon name="star" :size="11" />VIP</span>
+                    <span class="product-ribbon product-ribbon--vip"><x-icon name="star" :size="11" />VIP</span>
                 @endif
                 @if($product->discount_percent)
-                    <span class="badge" style="background:var(--danger);color:white;">&minus;{{ $product->discount_percent }}%</span>
+                    <span class="product-ribbon product-ribbon--discount">&minus;{{ $product->discount_percent }}%</span>
+                @endif
+                @if($product->created_at?->gt(now()->subDays(21)))
+                    <span class="product-ribbon product-ribbon--new">Новинка</span>
                 @endif
             </div>
             @if($product->images->count()>1)<button type="button" class="gallery-nav gallery-prev" onclick="akGalleryMove(-1)"><x-icon name="chevron-left" :size="20"/></button><button type="button" class="gallery-nav gallery-next" onclick="akGalleryMove(1)"><x-icon name="chevron-right" :size="20"/></button><span class="gallery-count"><span id="gallery-index">1</span> / {{ $product->images->count() }}</span>@endif
@@ -87,21 +91,22 @@
         @endif
 
         <div style="display:flex;align-items:center;gap:14px;margin-top:20px;">
+            @if($product->in_stock)
+                <form method="POST" action="{{ route('cart.add', $product) }}" class="cart-ajax-form cart-ajax-large" data-product-id="{{ $product->id }}" style="flex:1;">
+                    @csrf
+                    <div class="cart-card-state" style="height:52px">
+                        @if($cartQuantity > 0)
+                            <div class="cart-qty-control" style="height:52px"><button type="submit" data-cart-action="decrement"><x-icon name="minus" :size="15"/></button><span><small>Товар в корзине</small><b>{{ $cartQuantity }}</b></span><button type="submit" data-cart-action="increment"><x-icon name="plus" :size="15"/></button></div>
+                        @else
+                            <button type="submit" data-cart-action="increment" class="btn-accent cart-add-button" style="height:52px;font-size:15px"><x-icon name="cart" :size="18"/><span>Добавить в корзину</span></button>
+                        @endif
+                    </div>
+                </form>
+            @else
+                <button disabled class="btn-accent" style="flex:1;height:52px;font-size:15px;background:var(--surface-hover);color:var(--text-faint);">Нет в наличии</button>
+            @endif
+
             @auth
-                @if($product->in_stock)
-                    <form method="POST" action="{{ route('cart.add', $product) }}" class="cart-ajax-form cart-ajax-large" data-product-id="{{ $product->id }}" style="flex:1;">
-                        @csrf
-                        <div class="cart-card-state" style="height:52px">
-                            @if($cartQuantity > 0)
-                                <div class="cart-qty-control" style="height:52px"><button type="submit" data-cart-action="decrement"><x-icon name="minus" :size="15"/></button><span><small>Товар в корзине</small><b>{{ $cartQuantity }}</b></span><button type="submit" data-cart-action="increment"><x-icon name="plus" :size="15"/></button></div>
-                            @else
-                                <button type="submit" data-cart-action="increment" class="btn-accent cart-add-button" style="height:52px;font-size:15px"><x-icon name="cart" :size="18"/><span>Добавить в корзину</span></button>
-                            @endif
-                        </div>
-                    </form>
-                @else
-                    <button disabled class="btn-accent" style="flex:1;height:52px;font-size:15px;background:var(--surface-hover);color:var(--text-faint);">Нет в наличии</button>
-                @endif
                 <form method="POST" action="{{ route('wishlist.toggle', $product) }}" class="wishlist-toggle-form" style="height:52px">
                     @csrf
                     <button type="submit" class="icon-btn wishlist-toggle {{ $inWishlist ? 'on' : '' }}" style="width:52px;height:52px;border:1px solid var(--border);background:var(--surface)" aria-pressed="{{ $inWishlist ? 'true' : 'false' }}" title="{{ $inWishlist ? 'Удалить из избранного' : 'В избранное' }}">
@@ -115,7 +120,7 @@
                     </button>
                 </form>
             @else
-                <button type="button" onclick="akOpenAuthGate('cart')" class="btn-accent" style="flex:1;height:52px;font-size:15px;"><x-icon name="cart" :size="18" /> Добавить в корзину</button><button type="button" onclick="akOpenAuthGate('wishlist')" class="icon-btn" style="width:52px;height:52px;border:1px solid var(--border);background:var(--surface)"><x-icon name="heart" :size="19"/></button><button type="button" onclick="akOpenAuthGate('compare')" class="icon-btn" style="width:52px;height:52px;border:1px solid var(--border);background:var(--surface)"><x-icon name="compare" :size="19"/></button>
+                <button type="button" onclick="akOpenAuthGate('wishlist')" class="icon-btn" style="width:52px;height:52px;border:1px solid var(--border);background:var(--surface)"><x-icon name="heart" :size="19"/></button><button type="button" onclick="akOpenAuthGate('compare')" class="icon-btn" style="width:52px;height:52px;border:1px solid var(--border);background:var(--surface)"><x-icon name="compare" :size="19"/></button>
             @endauth
         </div>
 
@@ -163,7 +168,7 @@
                     @if($review->user->avatar_url)<img src="{{ $review->user->avatar_url }}" style="width:100%;height:100%;object-fit:cover" alt="">@else{{ Str::of($review->user->name)->substr(0, 2)->upper() }}@endif
                 </div>
                 <div class="review-item-body"><div class="review-meta"><strong>{{ $review->user->name }}</strong><span class="verified-buyer"><x-icon name="check" :size="10"/>Покупатель</span><time>{{ $review->created_at->format('d.m.Y') }}</time></div><div class="review-stars"><x-star-rating :rating="$review->rating" :size="13" :gap="2"/><b>{{ $review->rating }}.0</b></div>@if($review->comment)<p>{{ $review->comment }}</p>@else<div class="review-no-copy">Оценка без комментария</div>@endif
-                    @if($review->replies->isNotEmpty())<div class="review-replies">@foreach($review->replies as $reply)<div class="review-reply"><div class="reply-avatar">@if($reply->user->avatar_url)<img src="{{ $reply->user->avatar_url }}" alt="">@else{{ Str::of($reply->user->name)->substr(0,2)->upper() }}@endif</div><div style="flex:1"><div style="display:flex;gap:7px;align-items:center"><strong>{{ $reply->user->name }}</strong>@if($reply->user->isAdmin())<span class="admin-reply-badge">AK KAGYZ</span>@endif<span style="font-size:10px;color:var(--text-faint)">{{ $reply->created_at->diffForHumans() }}</span></div><div style="font-size:13px;color:var(--text-muted);margin-top:4px;line-height:1.55">{{ $reply->message }}</div></div>@auth @if(auth()->user()->isAdmin()||auth()->id()===$reply->user_id)<form method="POST" action="{{ route('reviews.replies.destroy',$reply) }}">@csrf @method('DELETE')<button class="reply-delete" title="Удалить">×</button></form>@endif @endauth</div>@endforeach</div>@endif
+                    @if($review->replies->isNotEmpty())<div class="review-replies">@foreach($review->replies as $reply)<div class="review-reply"><div class="reply-avatar">@if($reply->user->avatar_url)<img src="{{ $reply->user->avatar_url }}" alt="">@else{{ Str::of($reply->user->name)->substr(0,2)->upper() }}@endif</div><div style="flex:1"><div style="display:flex;gap:7px;align-items:center"><strong>{{ $reply->user->name }}</strong>@if($reply->user->isAdmin())<span class="admin-reply-badge">{{ $businessSettings->site_name }}</span>@endif<span style="font-size:10px;color:var(--text-faint)">{{ $reply->created_at->diffForHumans() }}</span></div><div style="font-size:13px;color:var(--text-muted);margin-top:4px;line-height:1.55">{{ $reply->message }}</div></div>@auth @if(auth()->user()->isAdmin()||auth()->id()===$reply->user_id)<form method="POST" action="{{ route('reviews.replies.destroy',$reply) }}">@csrf @method('DELETE')<button class="reply-delete" title="Удалить">×</button></form>@endif @endauth</div>@endforeach</div>@endif
                     @auth<div class="reply-wrap"><button type="button" class="reply-toggle" onclick="this.nextElementSibling.classList.toggle('show')">Ответить</button><form class="reply-form" method="POST" action="{{ route('reviews.replies.store',$review) }}">@csrf<textarea name="message" maxlength="1500" required placeholder="Напишите ответ..."></textarea><button class="btn-accent" style="height:34px;font-size:11px">Опубликовать</button></form></div>@endauth
                 </div>
             </article>
