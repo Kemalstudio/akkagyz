@@ -1,10 +1,11 @@
 @props(['product', 'showSeller' => false])
 @php
-    $inWishlist = auth()->check() && auth()->user()->wishlistItems()->where('product_id', $product->id)->exists();
-    $inCompare = auth()->check() && auth()->user()->compareItems()->where('product_id', $product->id)->exists();
+    $shoppingState = app(\App\Support\ShoppingState::class);
+    $inWishlist = $shoppingState->inWishlist($product->id);
+    $inCompare = $shoppingState->inCompare($product->id);
     $productUrl = route($product->seller_id ? 'marketplace.products.show' : 'products.show', $product->slug);
     $cardImage = $product->images->first();
-    $cartQuantity = auth()->check() ? (int) (auth()->user()->cartItems()->where('product_id', $product->id)->value('quantity') ?? 0) : 0;
+    $cartQuantity = $shoppingState->cartQuantity($product->id);
 @endphp
 <div class="pcard">
     <a href="{{ $productUrl }}" class="pcard-img" aria-label="{{ $product->name }}" @if($cardImage) style="background-image:url('{{ $cardImage->url }}');background-size:contain;background-repeat:no-repeat;background-position:center;" @endif>
@@ -12,14 +13,18 @@
             <x-icon name="image" :size="36" />
         @endunless
 
-        <div style="position:absolute;top:10px;left:10px;display:flex;flex-direction:column;gap:6px;">
+        <div class="product-ribbons">
             @if($product->is_vip)
-                <span class="badge" style="background:linear-gradient(100deg, oklch(0.78 0.16 85), oklch(0.68 0.17 60));color:#2a1a00;"><x-icon name="star" :size="10" />VIP</span>
+                <span class="product-ribbon product-ribbon--vip"><x-icon name="star" :size="10" />VIP</span>
             @endif
             @if($product->discount_percent)
-                <span class="badge" style="background:var(--danger);color:white;">&minus;{{ $product->discount_percent }}%</span>
-            @elseif($product->created_at?->gt(now()->subDays(21)))
-                <span class="badge" style="background:var(--success);color:var(--accent-text);">Новинка</span>
+                <span class="product-ribbon product-ribbon--discount">&minus;{{ $product->discount_percent }}%</span>
+            @endif
+            @if($product->condition === 'used')
+                <span class="product-ribbon product-ribbon--used">Б/У</span>
+            @endif
+            @if($product->created_at?->gt(now()->subDays(21)))
+                <span class="product-ribbon product-ribbon--new">Новинка</span>
             @endif
         </div>
 
@@ -82,7 +87,6 @@
         </div>
 
         @if($product->in_stock)
-            @auth
             <form method="POST" action="{{ route('cart.add', $product) }}" class="cart-ajax-form" data-product-id="{{ $product->id }}">
                 @csrf
                 <div class="cart-card-state">
@@ -93,7 +97,6 @@
                     @endif
                 </div>
             </form>
-            @else<button type="button" onclick="akOpenAuthGate('cart')" class="btn-accent" style="width:100%;margin-top:6px"><x-icon name="cart" :size="16"/>В корзину</button>@endauth
         @else
             <button disabled class="btn-accent" style="width:100%;margin-top:6px;background:var(--surface-hover);color:var(--text-faint);cursor:not-allowed;">Нет в наличии</button>
         @endif
