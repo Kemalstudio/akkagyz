@@ -19,6 +19,9 @@ use Illuminate\Validation\ValidationException;
 
 class CheckoutController extends Controller
 {
+    /** Surcharge for express checkout from the cart drawer (skips the full form, reuses the customer's last delivery details). */
+    private const EXPRESS_FEE = 30;
+
     public function index(Request $request)
     {
         $items = GuestCart::scope(CartItem::query(), $request->user())->with(['product.images', 'product.seller'])->get();
@@ -175,6 +178,118 @@ class CheckoutController extends Controller
             : 'Заказ уже был оформлен. Номер заказа: '.$order->number;
 
         return $this->redirectToOrder($request, $order)->with('status', $message);
+    }
+
+    public function expressStore(Request $request, PaymentGatewayResolver $gateways)
+    {
+        $user = $request->user();
+        $lastOrder = $user->orders()->latest()->first();
+
+        $data = [
+            'name' => $user->name,
+            'city' => $lastOrder?->city,
+            'address' => $lastOrder?->address,
+            'phone' => $lastOrder?->phone ?: $user->phone,
+            'delivery_method' => $lastOrder?->delivery_method ?: 'courier',
+            'payment_method' => 'cash',
+        ];
+
+        if (! $data['phone'] || ! $data['city'] || ($data['delivery_method'] === 'courier' && ! $data['address'])) {
+            return response()->json([
+                'message' => 'Быстрый заказ пока недоступен: оформите один заказ обычным способом, чтобы сохранить адрес доставки.',
+            ], 422);
+        }
+
+        $items = GuestCart::scope(CartItem::query(), $user)->with('product')->get();
+        if ($items->isEmpty()) {
+            return response()->json(['message' => 'Корзина пуста.'], 422);
+        }
+
+        $idempotencyKey = Str::uuid()->toString();
+
+        try {
+            $order = DB::transaction(function () use ($request, $data, $gateways, $idempotencyKey, $user) {
+                $cartItems = GuestCart::scope(CartItem::query(), $user)
+                    ->orderBy('product_id')
+                    ->lockForUpdate()
+                    ->get();
+
+                if ($cartItems->isEmpty()) {
+                    throw ValidationException::withMessages(['cart' => 'Корзина пуста.']);
+                }
+
+                $products = Product::query()
+                    ->with('seller')
+                    ->whereKey($cartItems->pluck('product_id'))
+                    ->orderBy('id')
+                    ->lockForUpdate()
+                    ->get()
+                    ->keyBy('id');
+
+                $rows = $cartItems->map(function (CartItem $item) use ($products) {
+                    $product = $products->get($item->product_id);
+                    if (! $product?->isPurchasable()) {
+                        throw ValidationException::withMessages(['cart' => 'Один из товаров больше недоступен.']);
+                    }
+                    if ($item->quantity > $product->stock) {
+                        throw ValidationException::withMessages(['cart' => "Недостаточно товара «{$product->name}» на складе."]);
+                    }
+
+                    return [$item, $product];
+                });
+
+                $subtotal = $rows->sum(fn (array $row) => $row[1]->price * $row[0]->quantity);
+                $compareSubtotal = $rows->sum(fn (array $row) => ($row[1]->compare_price ?? $row[1]->price) * $row[0]->quantity);
+                $discount = max(0, $compareSubtotal - $subtotal);
+
+                $order = Order::create([
+                    'number' => 'AK-'.strtoupper(Str::random(6)),
+                    'user_id' => $user->id,
+                    'status' => 'pending',
+                    'subtotal' => $compareSubtotal,
+                    'discount' => $discount,
+                    'express_fee' => self::EXPRESS_FEE,
+                    'total' => $subtotal + self::EXPRESS_FEE,
+                    'idempotency_key' => $idempotencyKey,
+                    ...$data,
+                ]);
+
+                foreach ($rows as [$item, $product]) {
+                    $orderItem = OrderItem::create([
+                        'order_id' => $order->id,
+                        'product_id' => $item->product_id,
+                        'seller_id' => $product->seller_id,
+                        'product_name' => $product->name,
+                        'price' => $product->price,
+                        'quantity' => $item->quantity,
+                        'status' => 'pending',
+                    ]);
+
+                    $product->decrement('stock', $item->quantity);
+                    $product->increment('sales_count', $item->quantity);
+
+                    if ($product->seller && BusinessSetting::current()->seller_notifications) {
+                        $product->seller->notify((new NewOrderForSeller($orderItem))->afterCommit());
+                    }
+                }
+
+                $gateways->resolve($order->payment_method)->charge($order);
+                GuestCart::scope(CartItem::query(), $user)->delete();
+
+                return $order;
+            });
+        } catch (ValidationException $e) {
+            return response()->json(['message' => $e->validator->errors()->first()], 422);
+        }
+
+        if (BusinessSetting::current()->order_notifications) {
+            $user->notify((new OrderPlaced($order))->afterCommit());
+        }
+
+        return response()->json([
+            'redirect' => route('orders.show', $order),
+            'message' => 'Заказ оформлен! Номер заказа: '.$order->number,
+        ]);
     }
 
     public function previewPromo(Request $request, PromoCodeService $promos)
