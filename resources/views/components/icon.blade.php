@@ -5,6 +5,12 @@
     @case('search')
         <circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/>
         @break
+    @case('home')
+        <path d="M3 10.5 12 3l9 7.5"/><path d="M5.5 9.5V20a1 1 0 0 0 1 1h4v-6h3v6h4a1 1 0 0 0 1-1V9.5"/>
+        @break
+    @case('zap')
+        <path d="M13 2 3 14h7l-1 8 10-12h-7z" fill="currentColor" stroke="none"/>
+        @break
     @case('cart')
         <circle cx="8" cy="21" r="1"/><circle cx="19" cy="21" r="1"/><path d="M2.5 2.5h3l2.7 12.4a2 2 0 0 0 2 1.6h8.6a2 2 0 0 0 2-1.6L23 6.5H6"/>
         @break
