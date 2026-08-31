@@ -15,9 +15,10 @@
                 </div>
                 <img src="{{ $banner->image_url }}" alt="{{ $banner->title }}" loading="lazy" style="width:140px;height:64px;object-fit:cover;border-radius:10px;flex-shrink:0;">
                 <div style="flex:1;min-width:0;">
-                    <div style="font-size:14px;font-weight:800;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">{{ $banner->title }}</div>
+                    <div style="font-size:14px;font-weight:800;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">{{ $banner->title ?: 'Без наложения текста' }}{{ !$banner->show_overlay ? ' · изображение' : '' }}</div>
                     <div style="font-size:12px;color:var(--text-faint);margin-top:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">{{ $banner->subtitle }}</div>
                 </div>
+                <span class="badge" style="background:var(--accent-soft);color:var(--accent);flex-shrink:0;">{{ ['main' => 'Главная', 'marketplace' => 'Маркетплейс', 'both' => 'Везде'][$banner->placement] ?? $banner->placement }}</span>
                 <span class="badge" style="background:{{ $banner->is_active ? 'var(--success-soft)' : 'var(--surface-hover)' }};color:{{ $banner->is_active ? 'var(--success)' : 'var(--text-faint)' }};flex-shrink:0;">{{ $banner->is_active ? 'Активен' : 'Скрыт' }}</span>
                 <div style="display:flex;gap:8px;flex-shrink:0;">
                     <form method="POST" action="{{ route('admin.banners.toggle', $banner) }}">@csrf<button type="submit" style="height:34px;padding:0 12px;border-radius:8px;font-weight:800;font-size:12px;border:1px solid var(--border);background:none;color:var(--text);">{{ $banner->is_active ? 'Скрыть' : 'Показать' }}</button></form>
