@@ -10,11 +10,11 @@ class Banner extends Model
 {
     use HasFactory;
 
-    protected $fillable = ['title', 'subtitle', 'button_text', 'image_path', 'link_url', 'sort_order', 'is_active'];
+    protected $fillable = ['title', 'subtitle', 'button_text', 'image_path', 'link_url', 'sort_order', 'is_active', 'show_overlay'];
 
     protected function casts(): array
     {
-        return ['is_active' => 'boolean'];
+        return ['is_active' => 'boolean', 'show_overlay' => 'boolean'];
     }
 
     public function scopeActive($query)
