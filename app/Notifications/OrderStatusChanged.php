@@ -53,6 +53,7 @@ class OrderStatusChanged extends Notification implements ShouldQueue
     {
         return match ($this->order->status) {
             'processing' => 'принят в обработку',
+            'confirmed' => 'подтверждён',
             'shipped' => 'передан в доставку',
             'delivered' => 'доставлен',
             'cancelled' => 'отменён',
