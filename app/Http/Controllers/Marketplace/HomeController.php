@@ -3,6 +3,8 @@
 namespace App\Http\Controllers\Marketplace;
 
 use App\Http\Controllers\Controller;
+use App\Models\Banner;
+use App\Models\Category;
 use App\Models\Product;
 use App\Models\User;
 
@@ -26,6 +28,8 @@ class HomeController extends Controller
         $productRelations = ['images', 'category', 'seller'];
 
         return view('marketplace.home', [
+            'banners' => Banner::active()->forMarketplace()->orderBy('sort_order')->get(),
+            'quickCategories' => Category::topLevel()->orderBy('sort_order')->get(),
             'stores' => $stores,
             'storesTotal' => $storesTotal,
             'stats' => [
