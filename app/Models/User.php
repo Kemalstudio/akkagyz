@@ -42,6 +42,7 @@ class User extends Authenticatable
         'store_address',
         'store_approved_at',
         'phone',
+        'delivery_address',
         'avatar_path',
         'is_vip',
         'is_blocked',
