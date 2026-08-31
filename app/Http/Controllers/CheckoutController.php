@@ -2,22 +2,26 @@
 
 namespace App\Http\Controllers;
 
+use App\Models\BusinessSetting;
+use App\Models\CartItem;
 use App\Models\Order;
 use App\Models\OrderItem;
+use App\Models\Product;
 use App\Notifications\NewOrderForSeller;
 use App\Notifications\OrderPlaced;
-use App\Models\BusinessSetting;
+use App\Services\Payments\PaymentGatewayResolver;
+use App\Services\PromoCodeService;
+use App\Support\GuestCart;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
-use App\Services\PromoCodeService;
-use App\Services\Payments\PaymentGatewayResolver;
+use Illuminate\Validation\ValidationException;
 
 class CheckoutController extends Controller
 {
     public function index(Request $request)
     {
-        $items = $request->user()->cartItems()->with('product')->get();
+        $items = GuestCart::scope(CartItem::query(), $request->user())->with(['product.images', 'product.seller'])->get();
 
         if ($items->isEmpty()) {
             return redirect()->route('cart.index');
@@ -39,83 +43,178 @@ class CheckoutController extends Controller
     {
         $data = $request->validate([
             'idempotency_key' => ['nullable', 'uuid'],
+            'name' => ['required', 'string', 'max:120'],
             'city' => ['required', 'string', 'max:120'],
-            'address' => ['required', 'string', 'max:255'],
-            'phone' => ['required', 'string', 'max:40'],
+            'address' => ['nullable', 'required_if:delivery_method,courier', 'string', 'max:255'],
+            'phone' => ['required', 'string', 'regex:/^[0-9+()\s-]{6,40}$/'],
             'delivery_method' => ['required', 'in:courier,pickup'],
             'payment_method' => ['required', 'in:cash'],
-            'promo_code' => ['nullable','string','max:50'],
+            'promo_code' => ['nullable', 'string', 'max:50'],
         ]);
         $idempotencyKey = $data['idempotency_key'] ?? Str::uuid()->toString();
         unset($data['idempotency_key']);
-
-        $existing = $request->user()->orders()->where('idempotency_key', $idempotencyKey)->first();
-        if ($existing) {
-            return redirect()->route('orders.show', $existing)->with('status', 'Заказ уже был оформлен. Номер заказа: '.$existing->number);
+        if ($data['delivery_method'] === 'pickup') {
+            $data['address'] = 'Самовывоз';
         }
 
-        $items = $request->user()->cartItems()->with('product')->get();
+        if (! $request->user() && ($data['promo_code'] ?? null)) {
+            return back()->withInput()->with('error', 'Промокоды доступны только зарегистрированным пользователям. Войдите в аккаунт, чтобы применить промокод.');
+        }
+
+        $existing = $this->existingOrder($request, $idempotencyKey);
+        if ($existing) {
+            return $this->redirectToOrder($request, $existing)->with('status', 'Заказ уже был оформлен. Номер заказа: '.$existing->number);
+        }
+
+        $items = GuestCart::scope(CartItem::query(), $request->user())->with('product')->get();
 
         if ($items->isEmpty()) {
             return redirect()->route('cart.index');
         }
 
-        foreach ($items as $item) {
-            if ($item->quantity > $item->product->stock) {
-                return back()->with('error', "Недостаточно товара «{$item->product->name}» на складе.");
+        $order = DB::transaction(function () use ($request, $data, $promos, $idempotencyKey, $gateways) {
+            if ($request->user()) {
+                $existing = $request->user()->orders()
+                    ->where('idempotency_key', $idempotencyKey)
+                    ->lockForUpdate()
+                    ->first();
+                if ($existing) {
+                    return $existing;
+                }
             }
-        }
 
-        $order = DB::transaction(function () use ($request, $data, $items, $promos, $idempotencyKey, $gateways) {
-            $subtotal = $items->sum(fn ($item) => $item->product->price * $item->quantity);
-            $compareSubtotal = $items->sum(fn ($item) => ($item->product->compare_price ?? $item->product->price) * $item->quantity);
+            $cartItems = GuestCart::scope(CartItem::query(), $request->user())
+                ->orderBy('product_id')
+                ->lockForUpdate()
+                ->get();
+
+            if ($cartItems->isEmpty()) {
+                throw ValidationException::withMessages(['cart' => 'Корзина пуста.']);
+            }
+
+            $products = Product::query()
+                ->with('seller')
+                ->whereKey($cartItems->pluck('product_id'))
+                ->orderBy('id')
+                ->lockForUpdate()
+                ->get()
+                ->keyBy('id');
+
+            $rows = $cartItems->map(function (CartItem $item) use ($products) {
+                $product = $products->get($item->product_id);
+                if (! $product?->isPurchasable()) {
+                    throw ValidationException::withMessages(['cart' => 'Один из товаров больше недоступен.']);
+                }
+                if ($item->quantity > $product->stock) {
+                    throw ValidationException::withMessages(['cart' => "Недостаточно товара «{$product->name}» на складе."]);
+                }
+
+                return [$item, $product];
+            });
+
+            $subtotal = $rows->sum(fn (array $row) => $row[1]->price * $row[0]->quantity);
+            $compareSubtotal = $rows->sum(fn (array $row) => ($row[1]->compare_price ?? $row[1]->price) * $row[0]->quantity);
             $discount = max(0, $compareSubtotal - $subtotal);
-            [$promo,$promoDiscount]=$promos->calculate($data['promo_code']??null,$request->user(),$items,$subtotal);unset($data['promo_code']);
+            [$promo, $promoDiscount] = $request->user()
+                ? $promos->calculate($data['promo_code'] ?? null, $request->user(), $cartItems, $subtotal)
+                : [null, 0];
+            unset($data['promo_code']);
 
             $order = Order::create([
                 'number' => 'AK-'.strtoupper(Str::random(6)),
-                'user_id' => $request->user()->id,
+                'user_id' => $request->user()?->id,
                 'status' => 'pending',
-                'subtotal' => $subtotal,
-                'discount' => $discount+$promoDiscount,
-                'total' => $subtotal-$promoDiscount,
-                'promo_code_id'=>$promo?->id,'promo_code'=>$promo?->code,
+                'subtotal' => $compareSubtotal,
+                'discount' => $discount + $promoDiscount,
+                'total' => $subtotal - $promoDiscount,
+                'promo_code_id' => $promo?->id, 'promo_code' => $promo?->code,
                 'idempotency_key' => $idempotencyKey,
                 ...$data,
             ]);
 
-            foreach ($items as $item) {
+            foreach ($rows as [$item, $product]) {
                 $orderItem = OrderItem::create([
                     'order_id' => $order->id,
                     'product_id' => $item->product_id,
-                    'seller_id' => $item->product->seller_id,
-                    'product_name' => $item->product->name,
-                    'price' => $item->product->price,
+                    'seller_id' => $product->seller_id,
+                    'product_name' => $product->name,
+                    'price' => $product->price,
                     'quantity' => $item->quantity,
                     'status' => 'pending',
                 ]);
 
-                $item->product->decrement('stock', $item->quantity);
-                $item->product->increment('sales_count', $item->quantity);
+                $product->decrement('stock', $item->quantity);
+                $product->increment('sales_count', $item->quantity);
 
-                if ($item->product->seller) {
+                if ($product->seller) {
                     if (BusinessSetting::current()->seller_notifications) {
-                        $item->product->seller->notify(new NewOrderForSeller($orderItem));
+                        $product->seller->notify((new NewOrderForSeller($orderItem))->afterCommit());
                     }
                 }
             }
 
             $gateways->resolve($order->payment_method)->charge($order);
-            $request->user()->cartItems()->delete();
-            if($promo)$promo->usages()->create(['user_id'=>$request->user()->id,'order_id'=>$order->id,'discount'=>$promoDiscount]);
+            GuestCart::scope(CartItem::query(), $request->user())->delete();
+            if ($promo) {
+                $promo->usages()->create(['user_id' => $request->user()->id, 'order_id' => $order->id, 'discount' => $promoDiscount]);
+            }
 
             return $order;
         });
 
-        if (BusinessSetting::current()->order_notifications) {
-            $request->user()->notify(new OrderPlaced($order));
+        if ($order->wasRecentlyCreated && BusinessSetting::current()->order_notifications) {
+            $request->user()?->notify((new OrderPlaced($order))->afterCommit());
         }
 
-        return redirect()->route('orders.show', $order)->with('status', 'Заказ оформлен! Номер заказа: '.$order->number);
+        if (! $request->user() && $order->wasRecentlyCreated) {
+            $request->session()->put("guest_checkout_orders.{$idempotencyKey}", $order->id);
+        }
+
+        $message = $order->wasRecentlyCreated
+            ? 'Заказ оформлен! Номер заказа: '.$order->number
+            : 'Заказ уже был оформлен. Номер заказа: '.$order->number;
+
+        return $this->redirectToOrder($request, $order)->with('status', $message);
+    }
+
+    public function previewPromo(Request $request, PromoCodeService $promos)
+    {
+        $data = $request->validate([
+            'promo_code' => ['required', 'string', 'max:50'],
+        ]);
+        $items = $request->user()->cartItems()->with('product')->get();
+        if ($items->isEmpty()) {
+            throw ValidationException::withMessages(['promo_code' => 'Корзина пуста.']);
+        }
+
+        $subtotal = $items->sum(fn ($item) => $item->product->price * $item->quantity);
+        [$promo, $discount] = $promos->calculate($data['promo_code'], $request->user(), $items, $subtotal);
+
+        return response()->json([
+            'code' => $promo->code,
+            'discount' => $discount,
+            'total' => max(0, $subtotal - $discount),
+            'message' => 'Промокод применён.',
+        ]);
+    }
+
+    private function redirectToOrder(Request $request, Order $order)
+    {
+        return $request->user()
+            ? redirect()->route('orders.show', $order)
+            : redirect()->route('orders.show.guest', ['order' => $order->id, 'token' => $order->access_token]);
+    }
+
+    private function existingOrder(Request $request, string $idempotencyKey): ?Order
+    {
+        if ($request->user()) {
+            return $request->user()->orders()->where('idempotency_key', $idempotencyKey)->first();
+        }
+
+        $orderId = $request->session()->get("guest_checkout_orders.{$idempotencyKey}");
+
+        return $orderId
+            ? Order::whereKey($orderId)->whereNull('user_id')->where('idempotency_key', $idempotencyKey)->first()
+            : null;
     }
 }
