@@ -4,7 +4,7 @@
         <x-icon name="bell" :size="19" />
         @if($unreadCount > 0)<span class="count">{{ $unreadCount > 9 ? '9+' : $unreadCount }}</span>@endif
     </button>
-    <div id="notif-menu" class="dropdown-panel" style="position:absolute;right:0;top:52px;background:var(--surface);border:1px solid var(--border);border-radius:14px;width:360px;z-index:70;box-shadow:0 24px 48px rgba(0,0,0,.28);overflow:hidden;">
+    <div id="notif-menu" class="dropdown-panel notif-panel" style="position:absolute;right:0;top:52px;background:var(--surface);border:1px solid var(--border);border-radius:14px;z-index:70;box-shadow:0 24px 48px rgba(0,0,0,.28);overflow:hidden;">
         <div style="padding:14px 16px;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;">
             <span style="font-size:14px;font-weight:900;">Уведомления</span>
             @if($unreadCount > 0)
