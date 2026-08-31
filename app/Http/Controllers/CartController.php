@@ -105,7 +105,22 @@ class CartController extends Controller
     {
         $this->authorizeOwner($request, $cartItem);
 
+        $productId = $cartItem->product_id;
         $cartItem->delete();
+
+        if ($request->expectsJson()) {
+            $items = GuestCart::scope(CartItem::query(), $request->user())->with(['product.images'])->latest()->get();
+            $subtotal = $items->sum(fn ($item) => $item->product->price * $item->quantity);
+
+            return response()->json([
+                'quantity' => 0,
+                'product_id' => $productId,
+                'count' => $items->sum('quantity'),
+                'subtotal' => $subtotal,
+                'drawer' => view('storefront.partials.cart-drawer-items', compact('items', 'subtotal'))->render(),
+                'message' => 'Товар удалён из корзины',
+            ]);
+        }
 
         return back()->with('status', 'Товар удалён из корзины.');
     }
