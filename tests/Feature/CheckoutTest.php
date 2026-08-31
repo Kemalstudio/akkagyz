@@ -8,13 +8,18 @@ use Illuminate\Support\Facades\Notification;
 
 it('creates an order from the cart, decrements stock, and notifies buyer and seller', function () {
     Notification::fake();
-    $seller = User::factory()->create(['role' => 'seller', 'store_name' => 'AK Store']);
+    $seller = User::factory()->create([
+        'role' => 'seller',
+        'store_name' => 'AK Store',
+        'store_status' => 'approved',
+    ]);
     $buyer = User::factory()->create();
     $product = Product::factory()->create(['seller_id' => $seller->id, 'price' => 50, 'stock' => 5]);
     $buyer->cartItems()->create(['product_id' => $product->id, 'quantity' => 2]);
 
     $response = $this->actingAs($buyer)->post(route('checkout.store'), [
         'idempotency_key' => \Illuminate\Support\Str::uuid()->toString(),
+        'name' => 'Test Buyer',
         'city' => 'Ашхабад',
         'address' => 'ул. Тестовая 1',
         'phone' => '+99364005374',
@@ -38,7 +43,7 @@ it('rejects checkout when stock is insufficient', function () {
     $buyer->cartItems()->create(['product_id' => $product->id, 'quantity' => 2]);
 
     $this->actingAs($buyer)->post(route('checkout.store'), [
-        'city' => 'Ашхабад', 'address' => 'ул. Тестовая 1', 'phone' => '+99364005374',
+        'name' => 'Test Buyer', 'city' => 'Ашхабад', 'address' => 'ул. Тестовая 1', 'phone' => '+99364005374',
         'delivery_method' => 'courier', 'payment_method' => 'cash',
     ])->assertRedirect();
 
@@ -54,6 +59,7 @@ it('does not create a duplicate order when the same idempotency key is resubmitt
 
     $payload = [
         'idempotency_key' => $key,
+        'name' => 'Test Buyer',
         'city' => 'Ашхабад', 'address' => 'ул. Тестовая 1', 'phone' => '+99364005374',
         'delivery_method' => 'courier', 'payment_method' => 'cash',
     ];
