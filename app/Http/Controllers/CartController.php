@@ -2,14 +2,16 @@
 
 namespace App\Http\Controllers;
 
+use App\Models\CartItem;
 use App\Models\Product;
+use App\Support\GuestCart;
 use Illuminate\Http\Request;
 
 class CartController extends Controller
 {
     public function index(Request $request)
     {
-        $items = $request->user()->cartItems()->with(['product.seller', 'product.images'])->get();
+        $items = GuestCart::scope(CartItem::query(), $request->user())->with(['product.seller', 'product.category', 'product.images'])->get();
 
         $subtotal = $items->sum(fn ($item) => $item->product->price * $item->quantity);
         $compareSubtotal = $items->sum(fn ($item) => ($item->product->compare_price ?? $item->product->price) * $item->quantity);
@@ -25,13 +27,19 @@ class CartController extends Controller
 
     public function add(Request $request, Product $product)
     {
-        if (! $product->in_stock) {
+        $product->loadMissing('seller');
+
+        if (! $product->isPurchasable()) {
             return $request->expectsJson()
                 ? response()->json(['message' => 'Товара нет в наличии.'], 422)
                 : back()->with('error', 'Товара нет в наличии.');
         }
 
-        $item = $request->user()->cartItems()->firstOrNew(['product_id' => $product->id]);
+        $owner = $request->user()
+            ? ['user_id' => $request->user()->id]
+            : ['guest_token' => GuestCart::token()];
+
+        $item = CartItem::firstOrNew($owner + ['product_id' => $product->id]);
         $current = $item->exists ? $item->quantity : 0;
         $quantity = $request->input('action', 'increment') === 'decrement' ? $current - 1 : $current + 1;
 
@@ -52,7 +60,7 @@ class CartController extends Controller
         }
 
         if ($request->expectsJson()) {
-            $items = $request->user()->cartItems()->with(['product.images'])->latest()->get();
+            $items = GuestCart::scope(CartItem::query(), $request->user())->with(['product.images'])->latest()->get();
             $subtotal = $items->sum(fn ($cartItem) => $cartItem->product->price * $cartItem->quantity);
 
             return response()->json([
@@ -67,11 +75,22 @@ class CartController extends Controller
         return back()->with('status', 'Товар добавлен в корзину.');
     }
 
-    public function update(Request $request, \App\Models\CartItem $cartItem)
+    public function update(Request $request, CartItem $cartItem)
     {
-        abort_unless($cartItem->user_id === $request->user()->id, 403);
+        $this->authorizeOwner($request, $cartItem);
 
-        $quantity = (int) $request->input('quantity', 1);
+        $data = $request->validate([
+            'quantity' => ['required', 'integer', 'min:0'],
+        ]);
+        $quantity = $data['quantity'];
+
+        $cartItem->loadMissing('product.seller');
+        if (! $cartItem->product?->isPurchasable()) {
+            return back()->with('error', 'Этот товар больше недоступен для заказа.');
+        }
+        if ($quantity > $cartItem->product->stock) {
+            return back()->with('error', 'В наличии только '.$cartItem->product->stock.' шт.');
+        }
 
         if ($quantity < 1) {
             $cartItem->delete();
@@ -82,12 +101,28 @@ class CartController extends Controller
         return back();
     }
 
-    public function destroy(Request $request, \App\Models\CartItem $cartItem)
+    public function destroy(Request $request, CartItem $cartItem)
     {
-        abort_unless($cartItem->user_id === $request->user()->id, 403);
+        $this->authorizeOwner($request, $cartItem);
 
         $cartItem->delete();
 
         return back()->with('status', 'Товар удалён из корзины.');
+    }
+
+    public function clear(Request $request)
+    {
+        GuestCart::scope(CartItem::query(), $request->user())->delete();
+
+        return redirect()->route('cart.index')->with('status', 'Корзина очищена.');
+    }
+
+    private function authorizeOwner(Request $request, CartItem $cartItem): void
+    {
+        $owns = $request->user()
+            ? $cartItem->user_id === $request->user()->id
+            : ($cartItem->guest_token !== null && hash_equals($cartItem->guest_token, GuestCart::token(false) ?? ''));
+
+        abort_unless($owns, 403);
     }
 }
