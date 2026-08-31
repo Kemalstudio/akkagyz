@@ -43,12 +43,22 @@ class MobileController extends Controller
 
     public function products(Request $request, ProductAttributeFilterService $attributeFilters): JsonResponse
     {
-        $query = Product::active()->with(['category', 'images', 'seller']);
-        $query->when($request->filled('q'), fn ($q) => $q->where('name', 'like', '%'.$request->string('q').'%'));
-        $query->when($request->filled('category_id'), fn ($q) => $q->where('category_id', $request->integer('category_id')));
+        $query = Product::customerVisible()->with(['category', 'images', 'seller', 'attributeValues.attribute']);
+        $query->when($request->filled('q'), fn ($q) => $q
+            ->search($request->string('q')->toString())
+            ->orderByRelevance($request->string('q')->toString()));
+        $query->when($request->filled('category_id'), function ($q) use ($request) {
+            $category = Category::with('children')->find($request->integer('category_id'));
+            $q->whereIn('category_id', $category?->idsWithChildren() ?? [$request->integer('category_id')]);
+        });
+        $query->when($request->filled('brand_id'), fn ($q) => $q->where('seller_id', $request->integer('brand_id')));
         $query->when($request->filled('min_price'), fn ($q) => $q->where('price', '>=', $request->integer('min_price')));
         $query->when($request->filled('max_price'), fn ($q) => $q->where('price', '<=', $request->integer('max_price')));
         $query->when($request->boolean('in_stock'), fn ($q) => $q->where('stock', '>', 0));
+        $query->when($request->filled('min_rating'), fn ($q) => $q->where('rating_avg', '>=', $request->integer('min_rating')));
+        $query->when($request->boolean('on_sale'), fn ($q) => $q
+            ->whereNotNull('compare_price')
+            ->whereColumn('compare_price', '>', 'price'));
         if ($request->filled('category_id')) {
             $category = Category::find($request->integer('category_id'));
             $attributeFilters->applySelected($query, $request, $attributeFilters->attributesFor($category));
@@ -60,7 +70,7 @@ class MobileController extends Controller
             'popular' => $query->orderByDesc('sales_count'),
             default => $query->latest(),
         };
-        $products = $query->paginate(min(1000, max(1, $request->integer('per_page', 30))));
+        $products = $query->paginate(min(100, max(1, $request->integer('per_page', 30))));
 
         return response()->json([
             'data' => collect($products->items())->map(fn ($product) => $this->productData($product)),
@@ -73,25 +83,41 @@ class MobileController extends Controller
         // Note: `limit()` inside an eager-load closure applies to the whole
         // underlying query, not per parent — it must not be used here, or
         // most categories end up with no preview image at all.
-        $categories = Category::withCount(['products' => fn ($q) => $q->active()])
-            ->with(['products' => fn ($q) => $q->active()->with('images')->select('id', 'category_id'), 'children'])
+        $categories = Category::withCount(['products' => fn ($q) => $q->customerVisible()])
+            ->with(['previewProduct.images', 'children'])
             ->orderBy('sort_order')->get();
 
         return response()->json(['data' => $categories->map(fn ($category) => [
             'id' => $category->id, 'parent_id' => $category->parent_id, 'name' => $category->name,
             'slug' => $category->slug, 'icon' => $category->icon, 'products_count' => $category->products_count,
-            'image_url' => $category->products->first()?->images->first()?->url,
+            'image_url' => $category->previewProduct?->images->first()?->url,
         ])]);
     }
 
     public function filters(Request $request, ProductAttributeFilterService $attributeFilters): JsonResponse
     {
-        $query = Product::active();
-        $query->when($request->filled('category_id'), fn ($q) => $q->where('category_id', $request->integer('category_id')));
+        $query = Product::customerVisible();
+        $query->when($request->filled('category_id'), function ($q) use ($request) {
+            $category = Category::with('children')->find($request->integer('category_id'));
+            $q->whereIn('category_id', $category?->idsWithChildren() ?? [$request->integer('category_id')]);
+        });
 
         $category = $request->filled('category_id') ? Category::find($request->integer('category_id')) : null;
         $attributes = $attributeFilters->attributesFor($category);
         $facets = $attributeFilters->facets($query, $attributes);
+        $brands = (clone $query)
+            ->whereNotNull('seller_id')
+            ->select('seller_id', DB::raw('count(*) as aggregate'))
+            ->with('seller:id,store_name')
+            ->groupBy('seller_id')
+            ->orderByDesc('aggregate')
+            ->get()
+            ->filter(fn ($product) => filled($product->seller?->store_name))
+            ->map(fn ($product) => [
+                'id' => $product->seller_id,
+                'name' => $product->seller->store_name,
+                'count' => (int) $product->aggregate,
+            ])->values();
 
         return response()->json(['data' => [
             'min_price' => (int) ((clone $query)->min('price') ?? 0),
@@ -101,12 +127,14 @@ class MobileController extends Controller
                 'name' => $facet['attribute']->name,
                 'values' => $facet['values']->map(fn ($item) => ['value' => $item->value, 'count' => $item->aggregate]),
             ]),
+            'brands' => $brands,
         ]]);
     }
 
     public function product(Product $product): JsonResponse
     {
-        abort_unless($product->status === 'active', 404);
+        $product->loadMissing('seller');
+        abort_unless($product->isCustomerVisible(), 404);
         $product->load(['category', 'images', 'seller', 'attributeValues.attribute', 'reviews'=>fn($q)=>$q->published()->with(['user','replies.user'])]);
 
         return response()->json(['data' => $this->productData($product) + ['reviews' => $product->reviews->map(fn ($review) => [
@@ -133,6 +161,7 @@ class MobileController extends Controller
             'name' => ['required', 'string', 'max:120'],
             'email' => ['required', 'email', 'max:190', 'unique:users,email'],
             'phone' => ['nullable', 'string', 'max:30'],
+            'delivery_address' => ['nullable', 'string', 'max:255'],
             'password' => ['required', 'confirmed', Password::min(8)],
         ]);
         $user = User::create($data + ['role' => 'customer']);
@@ -217,6 +246,7 @@ class MobileController extends Controller
             'name' => ['required', 'string', 'min:2', 'max:120'],
             'email' => ['required', 'email', 'max:190', Rule::unique('users', 'email')->ignore($user->id)],
             'phone' => ['nullable', 'string', 'max:30'],
+            'delivery_address' => ['nullable', 'string', 'max:255'],
         ]);
         $user->update($data);
 
@@ -241,6 +271,10 @@ class MobileController extends Controller
     public function cartUpdate(Request $request, Product $product): JsonResponse
     {
         $data = $request->validate(['action' => ['required', 'in:increment,decrement']]);
+        $product->loadMissing('seller');
+        if ($data['action'] === 'increment' && ! $product->isPurchasable()) {
+            throw ValidationException::withMessages(['product' => 'Товар сейчас недоступен для покупки.']);
+        }
         $item = $request->user()->cartItems()->firstOrNew(['product_id' => $product->id]);
         $current = $item->exists ? $item->quantity : 0;
         $quantity = $data['action'] === 'increment' ? $current + 1 : $current - 1;
@@ -268,6 +302,8 @@ class MobileController extends Controller
 
     public function wishlistToggle(Request $request, Product $product): JsonResponse
     {
+        $product->loadMissing('seller');
+        abort_unless($product->isCustomerVisible(), 404);
         $item = $request->user()->wishlistItems()->where('product_id', $product->id)->first();
         if ($item) {
             $item->delete();
@@ -302,10 +338,10 @@ class MobileController extends Controller
         $data = $request->validate([
             'idempotency_key' => ['sometimes', 'uuid'],
             'city' => ['required', 'string', 'max:120'],
-            'address' => ['required', 'string', 'max:255'],
+            'address' => ['nullable', 'required_if:delivery_method,courier', 'string', 'max:255'],
             'phone' => ['required', 'string', 'max:40'],
             'delivery_method' => ['required', 'in:courier,pickup'],
-            'payment_method' => ['required', 'in:card,cash'],
+            'payment_method' => ['required', 'in:cash'],
             'promo_code' => ['nullable','string','max:50'],
         ]);
         $data['idempotency_key'] ??= Str::uuid()->toString();
@@ -324,15 +360,38 @@ class MobileController extends Controller
             return response()->json(['message' => 'Корзина пуста.'], 422);
         }
 
-        $order = DB::transaction(function () use ($request, $data, $cart, $promos, $gateways) {
+        $order = DB::transaction(function () use ($request, $data, $promos, $gateways) {
+            $existing = $request->user()->orders()
+                ->where('idempotency_key', $data['idempotency_key'])
+                ->lockForUpdate()
+                ->first();
+            if ($existing) {
+                return $existing->load('items.product.images');
+            }
+
+            $cart = $request->user()->cartItems()
+                ->orderBy('product_id')
+                ->lockForUpdate()
+                ->get();
+            if ($cart->isEmpty()) {
+                throw ValidationException::withMessages(['cart' => 'Корзина пуста.']);
+            }
+
+            $products = Product::query()
+                ->with('seller')
+                ->whereKey($cart->pluck('product_id'))
+                ->orderBy('id')
+                ->lockForUpdate()
+                ->get()
+                ->keyBy('id');
             $rows = [];
             foreach ($cart as $item) {
-                $product = Product::query()->lockForUpdate()->find($item->product_id);
-                if (! $product || $product->status !== 'active') {
-                    abort(422, 'Один из товаров больше недоступен.');
+                $product = $products->get($item->product_id);
+                if (! $product?->isPurchasable()) {
+                    throw ValidationException::withMessages(['cart' => 'Один из товаров больше недоступен.']);
                 }
                 if ($item->quantity > $product->stock) {
-                    abort(422, "Недостаточно товара «{$product->name}» на складе.");
+                    throw ValidationException::withMessages(['cart' => "Недостаточно товара «{$product->name}» на складе."]);
                 }
                 $rows[] = [$item, $product];
             }
@@ -344,7 +403,7 @@ class MobileController extends Controller
                 'number' => 'AK-'.strtoupper(Str::random(8)),
                 'user_id' => $request->user()->id,
                 'status' => 'pending',
-                'subtotal' => $subtotal,
+                'subtotal' => $compareSubtotal,
                 'discount' => max(0, $compareSubtotal - $subtotal)+$promoDiscount,
                 'total' => $subtotal-$promoDiscount,
                 'promo_code_id'=>$promo?->id,'promo_code'=>$promo?->code,
@@ -366,23 +425,23 @@ class MobileController extends Controller
                 $product->increment('sales_count', $item->quantity);
 
                 if ($product->seller && $settings->seller_notifications) {
-                    $product->seller->notify(new NewOrderForSeller($orderItem));
+                    $product->seller->notify((new NewOrderForSeller($orderItem))->afterCommit());
                 }
             }
             $gateways->resolve($order->payment_method)->charge($order);
             $request->user()->cartItems()->delete();
             if($promo)$promo->usages()->create(['user_id'=>$request->user()->id,'order_id'=>$order->id,'discount'=>$promoDiscount]);
-            if ($settings->order_notifications) {
-                $request->user()->notify(new OrderPlaced($order));
-            }
-
             return $order->load('items.product.images');
         });
+
+        if ($order->wasRecentlyCreated && BusinessSetting::current()->order_notifications) {
+            $request->user()->notify((new OrderPlaced($order))->afterCommit());
+        }
 
         return response()->json([
             'message' => 'Заказ успешно оформлен.',
             'data' => $this->orderData($order),
-        ], 201);
+        ], $order->wasRecentlyCreated ? 201 : 200);
     }
 
     public function order(Request $request, Order $order): JsonResponse
@@ -482,11 +541,11 @@ class MobileController extends Controller
 
     private function userData(User $user): array
     {
-        return ['id' => $user->id, 'name' => $user->name, 'email' => $user->email, 'phone' => $user->phone, 'avatar_url' => $user->avatar_url, 'role' => $user->role];
+        return ['id' => $user->id, 'name' => $user->name, 'email' => $user->email, 'phone' => $user->phone, 'delivery_address' => $user->delivery_address, 'avatar_url' => $user->avatar_url, 'role' => $user->role];
     }
 
     private function productData(Product $product): array
     {
-        return ['id' => $product->id, 'name' => $product->name, 'slug' => $product->slug, 'category_id' => $product->category_id, 'category' => $product->category?->name, 'description' => $product->description, 'price' => $product->price, 'compare_price' => $product->compare_price, 'stock' => $product->stock, 'rating' => (float) $product->rating_avg, 'rating_count' => $product->rating_count, 'image_url' => $product->images->first()?->url, 'images' => $product->images->pluck('url')->filter()->values(), 'seller' => $product->seller?->store_name, 'specs' => $product->relationLoaded('attributeValues') ? $product->attributeValues->map(fn ($value) => ['name' => $value->attribute->name, 'value' => $value->value]) : []];
+        return ['id' => $product->id, 'name' => $product->name, 'slug' => $product->slug, 'category_id' => $product->category_id, 'category' => $product->category?->name, 'description' => $product->description, 'price' => $product->price, 'compare_price' => $product->compare_price, 'stock' => $product->stock, 'rating' => (float) $product->rating_avg, 'rating_count' => $product->rating_count, 'sales_count' => $product->sales_count, 'is_new' => $product->created_at?->isAfter(now()->subDays(14)) ?? false, 'image_url' => $product->images->first()?->url, 'images' => $product->images->pluck('url')->filter()->values(), 'brand' => $product->seller?->store_name, 'seller' => $product->seller?->store_name, 'specs' => $product->relationLoaded('attributeValues') ? $product->attributeValues->map(fn ($value) => ['name' => $value->attribute->name, 'value' => $value->value]) : []];
     }
 }
