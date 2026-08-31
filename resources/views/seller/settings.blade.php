@@ -1,7 +1,7 @@
 <x-dashboard-layout title="Настройки магазина" active="settings">
     <div style="font-size:24px;font-weight:900;margin-bottom:24px;">Настройки магазина</div>
 
-    <div style="display:grid;grid-template-columns:1.3fr 1fr;gap:20px;align-items:start;">
+    <div class="rgrid-main">
         <form method="POST" action="{{ route('seller.settings.update') }}" class="card" style="padding:24px;display:flex;flex-direction:column;gap:16px;">
             @csrf @method('PATCH')
             <div><label class="label">Название магазина</label><input required class="input" name="store_name" value="{{ old('store_name', $seller->store_name) }}"></div>
